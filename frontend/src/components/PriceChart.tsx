@@ -165,11 +165,15 @@ export default function PriceChart() {
     }
   }, [price, pct])
 
+  // 1D = the daily change vs the previous close (identical to the headline %);
+  // longer ranges = move since the first bar of the range.
+  const badgePerf = timeframe === '1D' ? pct : rangePerf
+
   return (
     <div className={styles.wrap}>
-      {rangePerf != null && (
-        <div className={`${styles.rangeBadge} ${rangePerf >= 0 ? 'pos' : 'neg'}`}>
-          {timeframe} <b>{rangePerf >= 0 ? '+' : ''}{rangePerf.toFixed(2)}%</b>
+      {badgePerf != null && (
+        <div className={`${styles.rangeBadge} ${badgePerf >= 0 ? 'pos' : 'neg'}`}>
+          {timeframe} <b>{badgePerf >= 0 ? '+' : ''}{badgePerf.toFixed(2)}%</b>
         </div>
       )}
       <div ref={mainRef} className={styles.main} />

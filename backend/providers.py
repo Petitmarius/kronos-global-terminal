@@ -37,6 +37,7 @@ _YF_TF = {
     "5Y":  ("1wk", "5y"),    # 5 years         -> years
     "MAX": ("1mo", "max"),
 }
+_INTRADAY = {"1m", "2m", "5m", "15m", "30m", "60m", "90m", "1h"}
 
 _UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124 Safari/537.36"
 _BASE = "https://query1.finance.yahoo.com/v8/finance/chart/"
@@ -71,14 +72,31 @@ def yahoo_candles(symbol: str, tf: str) -> dict | None:
     try:
         res = _chart(ysym, interval, rng)["chart"]["result"][0]
         ts = res["timestamp"]
-        closes = res["indicators"]["quote"][0]["close"]
+        q = res["indicators"]["quote"][0]
+        closes = q["close"]
+        opens = q.get("open", [])
     except (KeyError, IndexError, TypeError):
         return None
 
-    points = [{"time": int(t), "value": round(float(c), 6)}
-              for t, c in zip(ts, closes) if c is not None]
+    points = []
+    first_idx = None
+    for i, (t, c) in enumerate(zip(ts, closes)):
+        if c is None:
+            continue
+        if first_idx is None:
+            first_idx = i
+        points.append({"time": int(t), "value": round(float(c), 6)})
     if len(points) < 2:
         return None
+
+    # Intraday: the first bar's CLOSE is already a few minutes into the session
+    # and sits above the open. Start the line at the real session OPEN so the
+    # chart's left edge matches the day's open (and the grid OPEN cell).
+    if interval in _INTRADAY and first_idx is not None and first_idx < len(opens):
+        o0 = opens[first_idx]
+        if o0 is not None:
+            points[0]["value"] = round(float(o0), 6)
+
     out = {"symbol": symbol, "tf": tf, "points": points}
     _candle_cache[key] = (now, out)
     return out
