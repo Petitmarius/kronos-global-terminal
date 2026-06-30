@@ -1,0 +1,40 @@
+.wrap {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.main { flex: 1; min-height: 0; }
+.rangeBadge {
+  position: absolute;
+  top: 4px;
+  left: 6px;
+  z-index: 4;
+  font-size: 11px;
+  letter-spacing: .5px;
+  padding: 3px 9px;
+  border-radius: 5px;
+  background: rgba(12, 17, 22, .82);
+  border: 1px solid var(--border);
+  pointer-events: none;
+}
+.rangeBadge b { font-weight: 800; }
+.sub {
+  flex: 0 0 auto;
+  height: 84px;
+  position: relative;
+  border-top: 1px solid var(--border);
+  padding-top: 2px;
+}
+.subChart { position: absolute; inset: 0; }
+.subLabel {
+  position: absolute;
+  top: 4px;
+  left: 6px;
+  z-index: 3;
+  font-size: 9px;
+  letter-spacing: 1px;
+  color: var(--dim);
+  pointer-events: none;
+}

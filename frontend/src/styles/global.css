@@ -1,0 +1,97 @@
+* { box-sizing: border-box; }
+
+html, body, #root { height: 100%; margin: 0; }
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font);
+  font-size: 13px;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+  overflow: hidden;
+}
+
+button { font-family: var(--font); cursor: pointer; }
+input { font-family: var(--font); }
+
+/* ---- app shell ---------------------------------------------------------- */
+.app {
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  padding: 6px;
+  gap: 6px;
+  overflow: hidden;
+}
+.body {
+  flex: 1;
+  min-height: 0;
+  display: grid;
+  grid-template-columns: minmax(228px, 1fr) minmax(0, 3.5fr) minmax(332px, 1.5fr);
+  gap: 6px;
+}
+.col {
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  overflow: hidden;
+}
+
+/* ---- shared atoms ------------------------------------------------------- */
+.panel {
+  background: linear-gradient(180deg, var(--panel) 0%, var(--panel-2) 100%);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+.panel-title {
+  font-size: 10px;
+  letter-spacing: 1.6px;
+  color: var(--amber);
+  font-weight: 700;
+  text-transform: uppercase;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.panel-title .sub { color: var(--muted); font-weight: 500; letter-spacing: 1px; }
+
+.pos { color: var(--green); }
+.neg { color: var(--red); }
+.mut { color: var(--muted); }
+.amb { color: var(--amber); }
+
+.scroll { overflow-y: auto; overflow-x: hidden; }
+
+/* ---- scrollbar ---------------------------------------------------------- */
+::-webkit-scrollbar { width: 7px; height: 7px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: #1f2935; border-radius: 6px; }
+::-webkit-scrollbar-thumb:hover { background: #2c3a49; }
+
+/* ---- segmented control (reused across panels) -------------------------- */
+.seg {
+  display: flex;
+  gap: 3px;
+  background: var(--panel-2);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 3px;
+}
+.seg > button {
+  flex: 1;
+  border: none;
+  background: transparent;
+  color: var(--muted);
+  font-size: 11px;
+  letter-spacing: .5px;
+  font-weight: 600;
+  padding: 5px 4px;
+  border-radius: 4px;
+  white-space: nowrap;
+  transition: background .12s ease, color .12s ease;
+}
+.seg > button:hover { color: var(--text); background: #161d25; }
+.seg > button.on { background: var(--amber); color: var(--bg); font-weight: 800; }
+.seg > button.on-green { background: var(--green); color: var(--bg); font-weight: 800; }

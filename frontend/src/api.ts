@@ -1,0 +1,87 @@
+import type { Asset, Candles, OrderBook, Quote } from './types'
+
+export interface SearchResult {
+  symbol: string
+  name: string
+  cat: string
+  exch: string
+}
+
+export async function fetchAssets(): Promise<Asset[]> {
+  const r = await fetch('/api/assets')
+  if (!r.ok) throw new Error('assets fetch failed')
+  return r.json()
+}
+
+export async function searchSymbols(q: string): Promise<SearchResult[]> {
+  const r = await fetch(`/api/search?q=${encodeURIComponent(q)}`)
+  if (!r.ok) return []
+  return r.json()
+}
+
+export async function addAsset(symbol: string, name: string, cat: string): Promise<Asset | null> {
+  const r = await fetch(
+    `/api/assets/add?symbol=${encodeURIComponent(symbol)}&name=${encodeURIComponent(name)}&cat=${encodeURIComponent(cat)}`,
+    { method: 'POST' },
+  )
+  return r.ok ? r.json() : null
+}
+
+export async function removeAsset(symbol: string): Promise<void> {
+  await fetch(`/api/assets/${encodeURIComponent(symbol)}`, { method: 'DELETE' }).catch(() => {})
+}
+
+export async function fetchCandles(symbol: string, tf: string): Promise<Candles> {
+  const r = await fetch(`/api/assets/${symbol}/candles?tf=${tf}`)
+  if (!r.ok) throw new Error('candles fetch failed')
+  return r.json()
+}
+
+export async function fetchOrderBook(symbol: string): Promise<OrderBook> {
+  const r = await fetch(`/api/orderbook/${symbol}`)
+  if (!r.ok) throw new Error('orderbook fetch failed')
+  return r.json()
+}
+
+export interface PriceHandlers {
+  onSnapshot: (assets: Asset[], live: boolean) => void
+  onQuotes: (quotes: Quote[]) => void
+  onAsset: (asset: Asset) => void
+  onStatus: (connected: boolean) => void
+}
+
+/** Connect to the backend price stream with auto-reconnect. Returns a disposer. */
+export function connectPrices(h: PriceHandlers): () => void {
+  let ws: WebSocket | null = null
+  let closed = false
+  let retry = 1000
+
+  const open = () => {
+    const proto = location.protocol === 'https:' ? 'wss' : 'ws'
+    ws = new WebSocket(`${proto}://${location.host}/ws/prices`)
+    ws.onopen = () => {
+      retry = 1000
+      h.onStatus(true)
+    }
+    ws.onmessage = (e) => {
+      const msg = JSON.parse(e.data)
+      if (msg.type === 'snapshot') h.onSnapshot(msg.data, msg.live)
+      else if (msg.type === 'quotes') h.onQuotes(msg.data)
+      else if (msg.type === 'asset') h.onAsset(msg.data)
+    }
+    ws.onclose = () => {
+      h.onStatus(false)
+      if (!closed) {
+        setTimeout(open, retry)
+        retry = Math.min(retry * 2, 15000)
+      }
+    }
+    ws.onerror = () => ws?.close()
+  }
+
+  open()
+  return () => {
+    closed = true
+    ws?.close()
+  }
+}

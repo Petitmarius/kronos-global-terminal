@@ -1,0 +1,30 @@
+:root {
+  /* surfaces */
+  --bg: #0B0E11;
+  --panel: #12161A;
+  --panel-2: #0E1217;
+  --row: #0F141A;
+  --border: #1D2530;
+  --border-2: #252F3B;
+
+  /* signal colors */
+  --green: #00E676;
+  --green-d: #0c3a26;
+  --teal: #26A69A;
+  --red: #FF1744;
+  --red-d: #3a0f18;
+  --rose: #EF5350;
+  --amber: #FF9100;
+  --gold: #FFC24A;
+  --blue: #42A5F5;
+
+  /* text */
+  --gray: #607D8B;
+  --text: #D6DEE6;
+  --muted: #7C8A99;
+  --dim: #4A5663;
+
+  --font: 'JetBrains Mono', ui-monospace, Menlo, Consolas, monospace;
+
+  --radius: 8px;
+}
