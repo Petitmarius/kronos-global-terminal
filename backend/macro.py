@@ -194,3 +194,68 @@ def fetch_board() -> dict:
     board = build_board(quotes)
     _board_cache = (now, board)
     return board
+
+
+# --- Economics, curve & releases (FRED) -------------------------------------
+
+ECON = [
+    ("CPIAUCSL", "CPI (YoY)", "pc1", "%"),
+    ("CPILFESL", "Core CPI (YoY)", "pc1", "%"),
+    ("UNRATE", "Unemployment", "lin", "%"),
+    ("A191RL1Q225SBEA", "GDP (QoQ SAAR)", "lin", "%"),
+    ("FEDFUNDS", "Fed Funds", "lin", "%"),
+]
+CURVE_FRED = [
+    ("DGS1MO", 1, "1M"), ("DGS3MO", 3, "3M"), ("DGS6MO", 6, "6M"),
+    ("DGS1", 12, "1Y"), ("DGS2", 24, "2Y"), ("DGS3", 36, "3Y"),
+    ("DGS5", 60, "5Y"), ("DGS7", 84, "7Y"), ("DGS10", 120, "10Y"),
+    ("DGS20", 240, "20Y"), ("DGS30", 360, "30Y"),
+]
+RELEASES_FRED = [
+    ("CPIAUCSL", "CPI", "pc1", "%"), ("CPILFESL", "Core CPI", "pc1", "%"),
+    ("PAYEMS", "Nonfarm Payrolls", "chg", "K"), ("UNRATE", "Unemployment Rate", "lin", "%"),
+    ("A191RL1Q225SBEA", "GDP Growth", "lin", "%"), ("RSAFS", "Retail Sales (YoY)", "pc1", "%"),
+]
+
+
+def build_econ() -> dict:
+    if not fred_available():
+        return {"available": False, "series": []}
+    series = []
+    for sid, label, units, unit in ECON:
+        obs = fred_observations(sid, units=units, limit=40)
+        value, prior = latest_prior(obs)
+        series.append({"key": sid, "label": label, "value": value,
+                       "prior": prior, "unit": unit, "spark": spark(obs, 24)})
+    return {"available": True, "series": series}
+
+
+def build_curve() -> dict:
+    if not fred_available():
+        return {"available": False, "points": [], "spread2s10s": None, "inverted": False}
+    points, by_months = [], {}
+    for sid, months, label in CURVE_FRED:
+        value, _ = latest_prior(fred_observations(sid, limit=5))
+        if value is not None:
+            points.append({"label": label, "months": months, "yield": round(value, 3)})
+            by_months[months] = value
+    spread = None
+    if 24 in by_months and 120 in by_months:
+        spread = round(by_months[120] - by_months[24], 2)
+    return {"available": True, "points": points,
+            "spread2s10s": spread, "inverted": spread is not None and spread < 0}
+
+
+def build_releases() -> dict:
+    if not fred_available():
+        return {"available": False, "items": []}
+    items = []
+    for sid, label, units, unit in RELEASES_FRED:
+        obs = fred_observations(sid, units=units, limit=5)
+        value, _ = latest_prior(obs)
+        period = obs[-1]["date"] if obs else ""
+        meta = fred_meta(sid)
+        items.append({"series": sid, "label": label, "value": value,
+                      "unit": unit, "period": period,
+                      "updated": (meta.get("updated") or "")[:10]})
+    return {"available": True, "items": sort_releases(items)}

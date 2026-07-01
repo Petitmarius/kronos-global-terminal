@@ -75,3 +75,17 @@ def test_build_board_shape():
     assert {c["key"] for c in b["crossAsset"]} == {
         "equities", "rates", "commodities", "fx", "crypto"}
     assert b["sectors"][0]["pct"] >= b["sectors"][-1]["pct"]  # sorted desc
+
+
+def test_build_econ_unavailable(monkeypatch):
+    monkeypatch.setattr(config, "FRED_API_KEY", "")
+    assert macro.build_econ() == {"available": False, "series": []}
+
+def test_build_curve_unavailable(monkeypatch):
+    monkeypatch.setattr(config, "FRED_API_KEY", "")
+    c = macro.build_curve()
+    assert c["available"] is False and c["points"] == []
+
+def test_build_releases_unavailable(monkeypatch):
+    monkeypatch.setattr(config, "FRED_API_KEY", "")
+    assert macro.build_releases() == {"available": False, "items": []}
