@@ -3,6 +3,14 @@ import { useEffect, useState } from 'react'
 import { fetchMacroBoard, fetchMacroCurve, fetchMacroEcon, fetchMacroReleases } from '../../api'
 import type { MacroBoard, MacroCurve, MacroEcon, MacroReleases } from '../../types'
 import Panel from './Panel'
+import CrossAssetPanel from './panels/CrossAssetPanel'
+import DollarPanel from './panels/DollarPanel'
+import EconIndicatorsPanel from './panels/EconIndicatorsPanel'
+import RatesPanel from './panels/RatesPanel'
+import ReleasesPanel from './panels/ReleasesPanel'
+import SectorRotationPanel from './panels/SectorRotationPanel'
+import VolatilityPanel from './panels/VolatilityPanel'
+import YieldCurvePanel from './panels/YieldCurvePanel'
 import styles from './MacroDashboard.module.css'
 
 export default function MacroDashboard() {
@@ -25,17 +33,35 @@ export default function MacroDashboard() {
     return () => { alive = false; clearInterval(b); clearInterval(f) }
   }, [])
 
+  const loading = <span className={styles.empty}>loading…</span>
+
   return (
     <div className={styles.dash}>
       <div className={styles.grid}>
-        <Panel title="Yield Curve" source="FRED" span={2}>{curve ? `${curve.points.length} pts` : '…'}</Panel>
-        <Panel title="Rates & Central Bank" source="LIVE">{board ? `10Y ${board.rates.y10 ?? '—'}` : '…'}</Panel>
-        <Panel title="Cross-Asset" source="LIVE" span={2}>{board ? `${board.crossAsset.length} classes` : '…'}</Panel>
-        <Panel title="Volatility / Risk" source="LIVE">{board ? board.vix.regime : '…'}</Panel>
-        <Panel title="Sector Rotation" source="LIVE" span={2}>{board ? `${board.sectors.length} sectors` : '…'}</Panel>
-        <Panel title="US Dollar (DXY)" source="LIVE">{board ? board.dxy.level ?? '—' : '…'}</Panel>
-        <Panel title="Economic Indicators" source="FRED" span={2}>{econ ? (econ.available ? `${econ.series.length} series` : 'add FRED key') : '…'}</Panel>
-        <Panel title="Latest Releases" source="FRED">{releases ? (releases.available ? `${releases.items.length}` : 'add FRED key') : '…'}</Panel>
+        <Panel title="Yield Curve" source="FRED" span={2}>
+          <YieldCurvePanel curve={curve} />
+        </Panel>
+        <Panel title="Rates & Central Bank" source="LIVE">
+          {board ? <RatesPanel board={board} curve={curve} econ={econ} /> : loading}
+        </Panel>
+        <Panel title="Cross-Asset" source="LIVE" span={2}>
+          {board ? <CrossAssetPanel buckets={board.crossAsset} /> : loading}
+        </Panel>
+        <Panel title="Volatility / Risk" source="LIVE">
+          {board ? <VolatilityPanel vix={board.vix} /> : loading}
+        </Panel>
+        <Panel title="Sector Rotation" source="LIVE" span={2}>
+          {board ? <SectorRotationPanel sectors={board.sectors} /> : loading}
+        </Panel>
+        <Panel title="US Dollar (DXY)" source="LIVE">
+          {board ? <DollarPanel dxy={board.dxy} /> : loading}
+        </Panel>
+        <Panel title="Economic Indicators" source="FRED" span={2}>
+          <EconIndicatorsPanel econ={econ} />
+        </Panel>
+        <Panel title="Latest Releases" source="FRED">
+          <ReleasesPanel releases={releases} />
+        </Panel>
       </div>
       <footer className={styles.disclaimer}>
         Market macro (rates, VIX, DXY, sectors, cross-asset) via Yahoo Finance ·
