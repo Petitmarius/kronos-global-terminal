@@ -9,6 +9,7 @@ from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 
 import config
+import macro
 import providers
 from assets import CATEGORIES
 from feeds import baseline_loop, finnhub_loop, poll_loop, simulator_loop
@@ -18,6 +19,16 @@ from market import MARKET, TIMEFRAMES
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
 
 
+async def macro_loop() -> None:
+    """Keep the Yahoo board cache warm so the dashboard loads instantly."""
+    while True:
+        try:
+            await asyncio.to_thread(macro.fetch_board)
+        except Exception:  # noqa: BLE001
+            pass
+        await asyncio.sleep(30)
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     tasks = [
@@ -25,6 +36,7 @@ async def lifespan(app: FastAPI):
         asyncio.create_task(finnhub_loop()),
         asyncio.create_task(poll_loop()),
         asyncio.create_task(baseline_loop()),
+        asyncio.create_task(macro_loop()),
     ]
     try:
         yield
@@ -131,6 +143,26 @@ def get_orderbook(symbol: str):
     if symbol.upper() not in MARKET.assets:
         raise HTTPException(404, f"Unknown symbol {symbol}")
     return MARKET.orderbook(symbol.upper())
+
+
+@app.get("/api/macro/board")
+async def macro_board():
+    return await asyncio.to_thread(macro.fetch_board)
+
+
+@app.get("/api/macro/econ")
+async def macro_econ():
+    return await asyncio.to_thread(macro.build_econ)
+
+
+@app.get("/api/macro/curve")
+async def macro_curve():
+    return await asyncio.to_thread(macro.build_curve)
+
+
+@app.get("/api/macro/releases")
+async def macro_releases():
+    return await asyncio.to_thread(macro.build_releases)
 
 
 @app.websocket("/ws/prices")
