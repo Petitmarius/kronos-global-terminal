@@ -9,6 +9,7 @@ import type {
 const LS_WL = 'apex.watchlist'
 const LS_CUSTOM = 'apex.customs'
 const LS_SIM = 'apex.sim'
+const LS_VIEW = 'apex.view'
 
 interface CustomMeta {
   symbol: string
@@ -65,6 +66,9 @@ interface Store {
   live: boolean
   connected: boolean
 
+  view: 'TERMINAL' | 'MACRO'
+  setView: (v: 'TERMINAL' | 'MACRO') => void
+
   selected: string
   timeframe: string
   indicators: Set<string>
@@ -109,6 +113,8 @@ export const useStore = create<Store>((set) => ({
   baseSymbols: new Set<string>(),
   live: false,
   connected: false,
+
+  view: loadLS<'TERMINAL' | 'MACRO'>(LS_VIEW, 'TERMINAL'),
 
   selected: 'NAS100',
   timeframe: '1D',
@@ -229,6 +235,7 @@ export const useStore = create<Store>((set) => ({
 
   registerAsset: (asset) => set((s) => ({ assets: { ...s.assets, [asset.symbol]: asset } })),
   setConnected: (connected) => set({ connected }),
+  setView: (view) => { saveLS(LS_VIEW, view); set({ view }) },
   select: (selected) => set({ selected }),
   setTimeframe: (timeframe) => set({ timeframe }),
   toggleIndicator: (name) =>

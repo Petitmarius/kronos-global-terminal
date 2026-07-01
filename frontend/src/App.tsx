@@ -6,6 +6,7 @@ import Header from './components/Header'
 import OrderPanel from './components/OrderPanel'
 import Toasts from './components/Toasts'
 import Watchlist from './components/Watchlist'
+import MacroDashboard from './components/macro/MacroDashboard'
 import { useStore } from './store'
 
 export default function App() {
@@ -13,6 +14,7 @@ export default function App() {
   const applyQuotes = useStore((s) => s.applyQuotes)
   const registerAsset = useStore((s) => s.registerAsset)
   const setConnected = useStore((s) => s.setConnected)
+  const view = useStore((s) => s.view)
 
   useEffect(() => {
     return connectPrices({
@@ -35,11 +37,15 @@ export default function App() {
   return (
     <div className="app">
       <Header />
-      <div className="body">
-        <Watchlist />
-        <CenterPanel />
-        <OrderPanel />
-      </div>
+      {view === 'TERMINAL' ? (
+        <div className="body">
+          <Watchlist />
+          <CenterPanel />
+          <OrderPanel />
+        </div>
+      ) : (
+        <MacroDashboard />
+      )}
       <Toasts />
     </div>
   )

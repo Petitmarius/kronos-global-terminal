@@ -20,6 +20,8 @@ export default function Header() {
   const history = useStore((s) => s.history)
   const connected = useStore((s) => s.connected)
   const live = useStore((s) => s.live)
+  const view = useStore((s) => s.view)
+  const setView = useStore((s) => s.setView)
 
   const acct = computeAccount(positions, assets, history)
   const ticker = TICKER.map((s) => assets[s]).filter(Boolean)
@@ -31,6 +33,18 @@ export default function Header() {
           <span className={styles.logo}>AP<b>E</b>X</span>
           <span className={styles.tag}>PROP&nbsp;TERMINAL</span>
         </div>
+
+        <nav className={styles.nav}>
+          {(['TERMINAL', 'MACRO'] as const).map((v) => (
+            <button
+              key={v}
+              className={`${styles.navBtn} ${view === v ? styles.navOn : ''}`}
+              onClick={() => setView(v)}
+            >
+              {v}
+            </button>
+          ))}
+        </nav>
 
         <div className={styles.metrics}>
           <Metric k="Balance" v={fmtUsd(acct.balance)} />
