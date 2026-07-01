@@ -71,10 +71,18 @@
   position: absolute; bottom: -2px; transform: translateX(-50%);
   font: 700 8px/1 'JetBrains Mono', monospace; color: var(--dim); pointer-events: none;
 }
+.curveGuide { position: absolute; top: 0; bottom: 0; width: 1px; background: rgba(120, 144, 163, .4); pointer-events: none; }
 
 /* DXY panel */
 .dxyWrap { position: relative; height: 100%; }
-.dxyChart { position: absolute; left: 0; right: 0; bottom: 0; height: 92px; }
+.dxyChartBox { position: absolute; left: 0; right: 0; bottom: 0; height: 92px; }
+.dxyChartInner { position: absolute; inset: 0; }
+.chartTip {
+  position: absolute; transform: translate(-50%, -140%);
+  background: rgba(12, 17, 22, .92); border: 1px solid var(--border); border-radius: 4px;
+  padding: 3px 6px; font: 800 10px/1 'JetBrains Mono', monospace; color: #eef3f8;
+  pointer-events: none; white-space: nowrap; z-index: 5;
+}
 
 /* VIX gauge */
 .gauge { margin-top: 20px; position: relative; }
@@ -111,7 +119,9 @@
 .spark { display: flex; align-items: flex-end; gap: 1px; height: 22px; margin-top: 5px; }
 .sparkBar { flex: 1; background: rgba(66,165,245,.5); border-radius: 1px; min-height: 1px; }
 /* --- Live Wire Center (tabs + news feed + eco calendar) --- */
-.lw { display: flex; flex-direction: column; height: 100%; }
+/* absolute-fill so the (scrolling) content can never stretch the grid rows and
+   leave a void in the Sector Rotation / Economic Indicators panels beside it. */
+.lw { position: absolute; inset: 0; display: flex; flex-direction: column; }
 .lwTabs { display: flex; gap: 6px; padding: 10px 10px 0; }
 .lwTab {
   flex: 1; font: 700 10px/1 'JetBrains Mono', monospace; letter-spacing: .5px;

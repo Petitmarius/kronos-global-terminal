@@ -1,3 +1,5 @@
+import { useRef, useState, type MouseEvent } from 'react'
+
 import type { MacroCurve } from '../../../types'
 import styles from '../MacroDashboard.module.css'
 
@@ -5,6 +7,9 @@ const AXIS = ['1M', '3M', '1Y', '2Y', '5Y', '10Y', '30Y']
 const W = 300, H = 150, PADL = 8, PADR = 30, PADT = 12, PADB = 18
 
 export default function YieldCurvePanel({ curve }: { curve: MacroCurve | null }) {
+  const plotRef = useRef<HTMLDivElement>(null)
+  const [hover, setHover] = useState<number | null>(null)
+
   if (!curve || !curve.available || curve.points.length < 2) {
     return <div className={styles.empty}>Add a free FRED key to backend/.env<br />(FRED_API_KEY=…) to load the yield curve.</div>
   }
@@ -22,6 +27,16 @@ export default function YieldCurvePanel({ curve }: { curve: MacroCurve | null })
   const area = `${X(pts[0].months).toFixed(1)},${H - PADB} ${line} ${X(pts[pts.length - 1].months).toFixed(1)},${H - PADB}`
   const yTicks = [hi, (hi + lo) / 2, lo]
 
+  const onMove = (e: MouseEvent) => {
+    const rect = plotRef.current?.getBoundingClientRect()
+    if (!rect) return
+    const fx = (e.clientX - rect.left) / rect.width
+    let best = 0, bd = Infinity
+    pts.forEach((p, i) => { const d = Math.abs(X(p.months) / W - fx); if (d < bd) { bd = d; best = i } })
+    setHover(best)
+  }
+  const hp = hover != null ? pts[hover] : null
+
   return (
     <>
       <div className={styles.curveHead}>
@@ -30,14 +45,20 @@ export default function YieldCurvePanel({ curve }: { curve: MacroCurve | null })
           {curve.inverted ? ' · INVERTED' : ''}
         </span>
       </div>
-      <div className={styles.curvePlot}>
+      <div className={styles.curvePlot} ref={plotRef} onMouseMove={onMove} onMouseLeave={() => setHover(null)}>
         <svg className={styles.curveSvg} viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none">
           <polygon points={area} fill="rgba(66,165,245,.12)" />
           <polyline points={line} fill="none" stroke="#42A5F5" strokeWidth={2} vectorEffect="non-scaling-stroke" />
-          {pts.map((p) => (
-            <circle key={p.label} cx={X(p.months)} cy={Y(p.yield)} r={2.2} fill="#0d1116" stroke="#42A5F5" strokeWidth={1.5} vectorEffect="non-scaling-stroke" />
+          {pts.map((p, i) => (
+            <circle key={p.label} cx={X(p.months)} cy={Y(p.yield)} r={i === hover ? 3.4 : 2.2} fill={i === hover ? '#42A5F5' : '#0d1116'} stroke="#42A5F5" strokeWidth={1.5} vectorEffect="non-scaling-stroke" />
           ))}
         </svg>
+        {hp && <div className={styles.curveGuide} style={{ left: `${(X(hp.months) / W) * 100}%` }} />}
+        {hp && (
+          <div className={styles.chartTip} style={{ left: `${(X(hp.months) / W) * 100}%`, top: `${(Y(hp.yield) / H) * 100}%` }}>
+            {hp.label} · {hp.yield.toFixed(2)}%
+          </div>
+        )}
         {yTicks.map((v, i) => (
           <span key={i} className={styles.curveYlbl} style={{ top: `${(Y(v) / H) * 100}%` }}>{v.toFixed(1)}%</span>
         ))}
