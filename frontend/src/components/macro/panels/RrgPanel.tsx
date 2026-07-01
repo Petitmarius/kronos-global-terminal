@@ -17,16 +17,17 @@ export default function RrgPanel({ rrg }: { rrg: MacroRrg | null }) {
   if (!rrg) return <div className={styles.empty}>loading…</div>
   if (!rrg.available || rrg.sectors.length === 0) return <div className={styles.empty}>RRG data unavailable (Yahoo history).</div>
 
-  const allX = rrg.sectors.flatMap((s) => s.trail.map((p) => p.x))
-  const allY = rrg.sectors.flatMap((s) => s.trail.map((p) => p.y))
-  const halfX = Math.max(1.2, ...allX.map((x) => Math.abs(x - 100))) * 1.25
-  const halfY = Math.max(1.2, ...allY.map((y) => Math.abs(y - 100))) * 1.25
-  const fx = (x: number) => Math.max(2, Math.min(98, ((x - 100) / (2 * halfX) + 0.5) * 100))
-  const fy = (y: number) => Math.max(2, Math.min(98, (1 - ((y - 100) / (2 * halfY) + 0.5)) * 100))
+  // scale from the *current* positions so dots spread across the plot (trails,
+  // shown only on hover, may extend past the edges — that's fine, they're clamped)
+  const heads = rrg.sectors.map((s) => s.trail[s.trail.length - 1])
+  const halfX = Math.max(0.8, ...heads.map((h) => Math.abs(h.x - 100))) * 1.4
+  const halfY = Math.max(0.8, ...heads.map((h) => Math.abs(h.y - 100))) * 1.4
+  const fx = (x: number) => Math.max(3, Math.min(97, ((x - 100) / (2 * halfX) + 0.5) * 100))
+  const fy = (y: number) => Math.max(4, Math.min(96, (1 - ((y - 100) / (2 * halfY) + 0.5)) * 100))
+  const hs = hover != null ? rrg.sectors[hover] : null
 
   return (
     <div className={styles.rrgWrap}>
-      {/* quadrant backgrounds */}
       <div className={`${styles.rrgQuad} ${styles.rrgLeading}`}>LEADING</div>
       <div className={`${styles.rrgQuad} ${styles.rrgWeakening}`}>WEAKENING</div>
       <div className={`${styles.rrgQuad} ${styles.rrgImproving}`}>IMPROVING</div>
@@ -34,29 +35,28 @@ export default function RrgPanel({ rrg }: { rrg: MacroRrg | null }) {
       <div className={styles.rrgAxisV} />
       <div className={styles.rrgAxisH} />
 
-      <svg className={styles.rrgSvg} viewBox="0 0 100 100" preserveAspectRatio="none">
-        {rrg.sectors.map((s, i) => (
+      {/* trail only for the hovered sector — keeps the plot clean at rest */}
+      {hs && (
+        <svg className={styles.rrgSvg} viewBox="0 0 100 100" preserveAspectRatio="none">
           <polyline
-            key={s.symbol}
-            points={s.trail.map((p) => `${fx(p.x).toFixed(1)},${fy(p.y).toFixed(1)}`).join(' ')}
-            fill="none"
-            stroke={QCOLOR[s.quadrant] ?? '#607D8B'}
-            strokeWidth={hover === i ? 1.4 : 0.7}
-            strokeOpacity={hover == null || hover === i ? 0.55 : 0.15}
+            points={hs.trail.map((p) => `${fx(p.x).toFixed(1)},${fy(p.y).toFixed(1)}`).join(' ')}
+            fill="none" stroke={QCOLOR[hs.quadrant] ?? '#607D8B'} strokeWidth={1.6}
+            strokeOpacity={0.8} strokeLinecap="round" strokeLinejoin="round"
             vectorEffect="non-scaling-stroke"
           />
-        ))}
-      </svg>
+        </svg>
+      )}
 
       {rrg.sectors.map((s, i) => {
         const head = s.trail[s.trail.length - 1]
         const c = QCOLOR[s.quadrant] ?? '#607D8B'
-        const dim = hover != null && hover !== i
+        const active = hover === i
+        const dim = hover != null && !active
         return (
           <div
             key={s.symbol}
-            className={styles.rrgDot}
-            style={{ left: `${fx(head.x)}%`, top: `${fy(head.y)}%`, opacity: dim ? 0.35 : 1 }}
+            className={`${styles.rrgDot} ${active ? styles.rrgDotOn : ''}`}
+            style={{ left: `${fx(head.x)}%`, top: `${fy(head.y)}%`, opacity: dim ? 0.4 : 1, zIndex: active ? 4 : 2 }}
             onMouseEnter={() => setHover(i)}
             onMouseLeave={() => setHover(null)}
           >
@@ -66,14 +66,11 @@ export default function RrgPanel({ rrg }: { rrg: MacroRrg | null }) {
         )
       })}
 
-      {hover != null && (() => {
-        const s = rrg.sectors[hover]; const h = s.trail[s.trail.length - 1]
-        return (
-          <div className={styles.rrgTip} style={{ left: `${fx(h.x)}%`, top: `${fy(h.y)}%` }}>
-            {s.label} · {s.quadrant} · RS {h.x.toFixed(1)} / Mom {h.y.toFixed(1)}
-          </div>
-        )
-      })()}
+      {hs && (
+        <div className={styles.rrgTip} style={{ left: `${fx(heads[hover as number].x)}%`, top: `${fy(heads[hover as number].y)}%` }}>
+          {hs.label} · {hs.quadrant} · RS {heads[hover as number].x.toFixed(1)} / Mom {heads[hover as number].y.toFixed(1)}
+        </div>
+      )}
     </div>
   )
 }

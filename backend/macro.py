@@ -536,7 +536,8 @@ def build_correlations() -> dict:
 # --- Sector RRG (Relative Rotation Graph) -----------------------------------
 
 RRG_BENCH = "SPY"
-_RRG_N, _RRG_M, _RRG_TRAIL = 12, 5, 6
+_RRG_N, _RRG_M = 21, 10            # RS-Ratio / RS-Momentum smoothing (trading days)
+_RRG_STRIDE, _RRG_TRAIL = 5, 5     # weekly sampling, ~5 weeks of tail
 _rrg_cache: tuple[float, dict] | None = None
 _RRG_TTL = 3600.0
 
@@ -567,14 +568,15 @@ def build_rrg() -> dict:
         for sym, label in SECTORS:
             sec = _day_series(sym, "6M")
             days = sorted(set(sec) & set(bench))
-            if len(days) < _RRG_N + _RRG_M + _RRG_TRAIL:
+            if len(days) < _RRG_N + _RRG_M + _RRG_STRIDE * _RRG_TRAIL:
                 continue
             rs = np.array([sec[d] / bench[d] for d in days])
-            rs_ratio = 100 * rs[_RRG_N - 1:] / _sma(rs, _RRG_N)
-            rs_mom = 100 * rs_ratio[_RRG_M - 1:] / _sma(rs_ratio, _RRG_M)
-            rs_ratio = rs_ratio[_RRG_M - 1:]  # align to rs_mom
-            trail = [{"x": round(float(rs_ratio[k]), 2), "y": round(float(rs_mom[k]), 2)}
-                     for k in range(len(rs_mom) - _RRG_TRAIL, len(rs_mom))]
+            ratio = 100 * rs[_RRG_N - 1:] / _sma(rs, _RRG_N)
+            mom = 100 * ratio[_RRG_M - 1:] / _sma(ratio, _RRG_M)
+            ratio = ratio[_RRG_M - 1:]  # align to mom
+            # sample weekly, most-recent-last, for a short smooth tail
+            idx = sorted(list(range(len(mom) - 1, -1, -_RRG_STRIDE))[:_RRG_TRAIL])
+            trail = [{"x": round(float(ratio[k]), 2), "y": round(float(mom[k]), 2)} for k in idx]
             head = trail[-1]
             sectors.append({"symbol": sym, "label": label, "trail": trail,
                             "quadrant": _quadrant(head["x"], head["y"])})
