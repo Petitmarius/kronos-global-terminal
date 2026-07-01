@@ -146,7 +146,7 @@ export interface Account {
 // --- Macro Dashboard --------------------------------------------------------
 
 export interface SectorPerf { symbol: string; label: string; pct: number }
-export interface CrossAssetCell { symbol: string; label: string; pct: number }
+export interface CrossAssetCell { symbol: string; label: string; pct: number; local: string | null }
 export interface CrossAssetBucket { key: string; label: string; items: CrossAssetCell[] }
 export interface MacroBoard {
   ts: number
@@ -171,3 +171,9 @@ export interface Release {
   series: string; label: string; value: number | null; unit: string; period: string; updated: string
 }
 export interface MacroReleases { available: boolean; items: Release[] }
+export interface NewsItem {
+  headline: string; url: string; source: string; datetime: number; impact: string; summary: string
+}
+export interface MacroNews { available: boolean; source: string; items: NewsItem[] }
+export interface CalendarItem { date: string; event: string }
+export interface MacroCalendar { available: boolean; source: string | null; items: CalendarItem[] }

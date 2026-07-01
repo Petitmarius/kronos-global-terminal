@@ -1,5 +1,6 @@
 import type {
-  Asset, Candles, MacroBoard, MacroCurve, MacroEcon, MacroReleases, OrderBook, Quote,
+  Asset, Candles, MacroBoard, MacroCalendar, MacroCurve, MacroEcon, MacroNews, MacroReleases,
+  OrderBook, Quote,
 } from './types'
 
 export interface SearchResult {
@@ -63,6 +64,14 @@ export async function fetchMacroReleases(): Promise<MacroReleases | null> {
 }
 export async function fetchMacroCandles(symbol: string, tf: string): Promise<Candles | null> {
   const r = await fetch(`/api/macro/candles?symbol=${encodeURIComponent(symbol)}&tf=${encodeURIComponent(tf)}`)
+  return r.ok ? r.json() : null
+}
+export async function fetchMacroNews(): Promise<MacroNews | null> {
+  const r = await fetch('/api/macro/news')
+  return r.ok ? r.json() : null
+}
+export async function fetchMacroCalendar(): Promise<MacroCalendar | null> {
+  const r = await fetch('/api/macro/calendar')
   return r.ok ? r.json() : null
 }
 

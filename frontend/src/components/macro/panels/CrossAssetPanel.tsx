@@ -1,3 +1,4 @@
+import { useStore } from '../../../store'
 import type { CrossAssetBucket } from '../../../types'
 import styles from '../MacroDashboard.module.css'
 
@@ -7,21 +8,38 @@ function heat(pct: number): string {
 }
 
 export default function CrossAssetPanel({ buckets }: { buckets: CrossAssetBucket[] }) {
+  const assets = useStore((s) => s.assets)
+  const select = useStore((s) => s.select)
+  const setView = useStore((s) => s.setView)
+
+  const go = (local: string | null) => {
+    if (local && assets[local]) { select(local); setView('TERMINAL') }
+  }
+
   return (
-    <div>
+    <div className={styles.caGrid}>
       {buckets.map((b) => (
-        <div className={styles.bucket} key={b.key}>
-          <div className={styles.bucketLbl}>{b.label}</div>
-          <div className={styles.heatRow}>
-            {b.items.map((c) => (
-              <div className={styles.heatCell} key={c.symbol} style={{ background: heat(c.pct) }}>
-                <div className="sym">{c.label}</div>
-                <div className={`pct ${c.pct >= 0 ? styles.pos : styles.neg}`}>
+        <div className={styles.caCol} key={b.key}>
+          <div className={styles.caColHead}>{b.label}</div>
+          {b.items.map((c) => {
+            const clickable = !!(c.local && assets[c.local])
+            return (
+              <button
+                key={c.symbol}
+                type="button"
+                className={`${styles.caCell} ${clickable ? styles.caClickable : ''}`}
+                style={{ background: heat(c.pct) }}
+                onClick={() => go(c.local)}
+                disabled={!clickable}
+                title={clickable ? `Open ${c.local} in terminal` : c.label}
+              >
+                <span className={styles.caSym}>{c.label}</span>
+                <span className={`${styles.caPct} ${c.pct >= 0 ? styles.pos : styles.neg}`}>
                   {c.pct >= 0 ? '+' : ''}{c.pct.toFixed(2)}%
-                </div>
-              </div>
-            ))}
-          </div>
+                </span>
+              </button>
+            )
+          })}
         </div>
       ))}
     </div>
