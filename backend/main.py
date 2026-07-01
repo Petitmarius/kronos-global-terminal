@@ -182,6 +182,16 @@ async def macro_calendar():
     return await asyncio.to_thread(macro.build_calendar)
 
 
+@app.get("/api/macro/correlations")
+async def macro_correlations():
+    return await asyncio.to_thread(macro.build_correlations)
+
+
+@app.get("/api/macro/rrg")
+async def macro_rrg():
+    return await asyncio.to_thread(macro.build_rrg)
+
+
 @app.websocket("/ws/prices")
 async def ws_prices(ws: WebSocket):
     await HUB.connect(ws)

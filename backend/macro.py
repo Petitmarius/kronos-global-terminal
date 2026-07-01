@@ -15,6 +15,8 @@ import urllib.parse
 import urllib.request
 import xml.etree.ElementTree as ET
 
+import numpy as np
+
 import config
 import providers
 
@@ -163,6 +165,50 @@ def _bp_change(q: dict | None) -> float | None:
     return round((normalize_yield(q["price"]) - normalize_yield(q["prevClose"])) * 100, 1)
 
 
+def _clamp(v: float, lo: float = 0.0, hi: float = 100.0) -> float:
+    return max(lo, min(hi, v))
+
+
+def _risk_label(score: float) -> str:
+    if score >= 80:
+        return "Extreme Risk-On"
+    if score >= 60:
+        return "Risk-On"
+    if score >= 40:
+        return "Neutral"
+    if score >= 20:
+        return "Risk-Off"
+    return "Extreme Risk-Off"
+
+
+def build_risk(quotes: dict[str, dict]) -> dict | None:
+    """Composite 0-100 Risk-On/Risk-Off score from real market signals.
+    100 = full risk-on, 0 = full risk-off. Returns None if inputs are missing."""
+    def pct(sym):
+        q = quotes.get(sym)
+        return q["pct"] if q else None
+
+    vix_q = quotes.get(VIX_YH)
+    vix = vix_q["price"] if vix_q else None
+    hyg, lqd = pct("HYG"), pct("LQD")
+    spx, tlt = pct("^GSPC"), pct("TLT")
+    dxy, gold = pct(DXY_YH), pct("GC=F")
+    if None in (vix, hyg, lqd, spx, tlt, dxy, gold):
+        return None
+
+    # each driver -> 0..100 sub-score (100 = risk-on)
+    drivers = [
+        ("Volatility", _clamp((32 - vix) / 20 * 100), 0.30),          # VIX 12->100, 32->0
+        ("Credit HY/IG", _clamp(50 + (hyg - lqd) * 40), 0.20),        # HY outperforming = risk-on
+        ("Equities/Bonds", _clamp(50 + (spx - tlt) * 20), 0.20),      # stocks > bonds = risk-on
+        ("US Dollar", _clamp(50 - dxy * 30), 0.15),                   # dollar up = risk-off
+        ("Gold", _clamp(50 - gold * 20), 0.15),                       # gold up = risk-off
+    ]
+    score = round(sum(v * w for _, v, w in drivers))
+    return {"score": score, "label": _risk_label(score),
+            "drivers": [{"name": n, "value": round(v)} for n, v, _ in drivers]}
+
+
 def build_board(quotes: dict[str, dict]) -> dict:
     def lvl(ysym):
         q = quotes.get(ysym)
@@ -196,6 +242,7 @@ def build_board(quotes: dict[str, dict]) -> dict:
                 "pct": round(dxy_q["pct"], 2) if dxy_q else None},
         "sectors": sectors,
         "crossAsset": cross,
+        "risk": build_risk(quotes),
     }
 
 
@@ -437,4 +484,100 @@ def build_calendar() -> dict:
     items = _fred_release_calendar()
     out = {"available": bool(items), "source": "fred" if items else None, "items": items}
     _cal_cache = (now, out)
+    return out
+
+
+# --- Cross-asset correlations (real history) --------------------------------
+
+CORR_ASSETS = [
+    ("^GSPC", "S&P 500"), ("^NDX", "Nasdaq"), ("^RUT", "Russell 2K"),
+    ("GC=F", "Gold"), ("CL=F", "WTI Oil"), ("BTC-USD", "Bitcoin"),
+    ("DX-Y.NYB", "US Dollar"), ("^TNX", "US 10Y"), ("TLT", "Long Bonds"),
+]
+_corr_cache: tuple[float, dict] | None = None
+_CORR_TTL = 3600.0
+
+
+def _day_series(ysym: str, tf: str) -> dict[int, float]:
+    """Daily close keyed by UTC day (robust alignment across asset calendars)."""
+    c = providers.yahoo_candles_raw(ysym, tf)
+    if not c:
+        return {}
+    return {p["time"] // 86400: p["value"] for p in c["points"]}
+
+
+def build_correlations() -> dict:
+    global _corr_cache
+    now = time.time()
+    if _corr_cache and now - _corr_cache[0] < _CORR_TTL:
+        return _corr_cache[1]
+
+    series = {sym: _day_series(sym, "3M") for sym, _ in CORR_ASSETS}
+    series = {s: d for s, d in series.items() if len(d) > 15}
+    out = {"available": False, "labels": [], "matrix": []}
+    if len(series) >= 3:
+        common = sorted(set.intersection(*[set(d) for d in series.values()]))
+        if len(common) >= 12:
+            syms = list(series)
+            mat = np.array([[series[s][day] for day in common] for s in syms])
+            rets = np.diff(np.log(mat), axis=1)
+            corr = np.corrcoef(rets)
+            names = dict(CORR_ASSETS)
+            out = {
+                "available": True,
+                "labels": [names[s] for s in syms],
+                "matrix": [[round(float(corr[i][j]), 2) for j in range(len(syms))]
+                           for i in range(len(syms))],
+            }
+    _corr_cache = (now, out)
+    return out
+
+
+# --- Sector RRG (Relative Rotation Graph) -----------------------------------
+
+RRG_BENCH = "SPY"
+_RRG_N, _RRG_M, _RRG_TRAIL = 12, 5, 6
+_rrg_cache: tuple[float, dict] | None = None
+_RRG_TTL = 3600.0
+
+
+def _sma(a: np.ndarray, n: int) -> np.ndarray:
+    return np.convolve(a, np.ones(n) / n, mode="valid")
+
+
+def _quadrant(x: float, y: float) -> str:
+    if x >= 100 and y >= 100:
+        return "leading"
+    if x >= 100:
+        return "weakening"
+    if y >= 100:
+        return "improving"
+    return "lagging"
+
+
+def build_rrg() -> dict:
+    global _rrg_cache
+    now = time.time()
+    if _rrg_cache and now - _rrg_cache[0] < _RRG_TTL:
+        return _rrg_cache[1]
+
+    bench = _day_series(RRG_BENCH, "6M")
+    sectors = []
+    if len(bench) >= 40:
+        for sym, label in SECTORS:
+            sec = _day_series(sym, "6M")
+            days = sorted(set(sec) & set(bench))
+            if len(days) < _RRG_N + _RRG_M + _RRG_TRAIL:
+                continue
+            rs = np.array([sec[d] / bench[d] for d in days])
+            rs_ratio = 100 * rs[_RRG_N - 1:] / _sma(rs, _RRG_N)
+            rs_mom = 100 * rs_ratio[_RRG_M - 1:] / _sma(rs_ratio, _RRG_M)
+            rs_ratio = rs_ratio[_RRG_M - 1:]  # align to rs_mom
+            trail = [{"x": round(float(rs_ratio[k]), 2), "y": round(float(rs_mom[k]), 2)}
+                     for k in range(len(rs_mom) - _RRG_TRAIL, len(rs_mom))]
+            head = trail[-1]
+            sectors.append({"symbol": sym, "label": label, "trail": trail,
+                            "quadrant": _quadrant(head["x"], head["y"])})
+    out = {"available": bool(sectors), "sectors": sectors}
+    _rrg_cache = (now, out)
     return out

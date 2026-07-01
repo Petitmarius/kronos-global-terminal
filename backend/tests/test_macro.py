@@ -109,6 +109,31 @@ def test_fetch_news_unavailable(monkeypatch):
     n = macro.fetch_news()
     assert n["available"] is False and n["items"] == []
 
+def test_risk_label_and_quadrant():
+    assert macro._risk_label(90) == "Extreme Risk-On"
+    assert macro._risk_label(50) == "Neutral"
+    assert macro._risk_label(10) == "Extreme Risk-Off"
+    assert macro._quadrant(101, 101) == "leading"
+    assert macro._quadrant(101, 99) == "weakening"
+    assert macro._quadrant(99, 101) == "improving"
+    assert macro._quadrant(99, 99) == "lagging"
+
+def test_build_risk_score_range():
+    q = lambda price, pct: {"price": price, "prevClose": price, "pct": pct,
+                            "open": None, "high": None, "low": None}
+    quotes = {
+        macro.VIX_YH: q(15.0, 0.0), "HYG": q(80, 0.3), "LQD": q(110, 0.1),
+        "^GSPC": q(5000, 0.8), "TLT": q(90, -0.4), macro.DXY_YH: q(101, 0.2),
+        "GC=F": q(2400, -0.5),
+    }
+    r = macro.build_risk(quotes)
+    assert 0 <= r["score"] <= 100
+    assert r["label"] in {"Extreme Risk-On", "Risk-On", "Neutral", "Risk-Off", "Extreme Risk-Off"}
+    assert len(r["drivers"]) == 5
+
+def test_build_risk_none_when_missing():
+    assert macro.build_risk({}) is None
+
 def test_build_board_cell_has_local():
     quotes = {s: {"price": 1.0, "prevClose": 1.0, "pct": 0.0,
                   "open": None, "high": None, "low": None} for s in macro.board_symbols()}
