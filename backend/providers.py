@@ -43,6 +43,7 @@ _UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like
 _BASE = "https://query1.finance.yahoo.com/v8/finance/chart/"
 
 _candle_cache: dict[tuple[str, str], tuple[float, dict]] = {}
+_raw_candle_cache: dict[tuple[str, str], tuple[float, dict]] = {}
 _quote_cache: dict[str, tuple[float, dict]] = {}
 _raw_quote_cache: dict[str, tuple[float, dict]] = {}
 _CANDLE_TTL = 25.0
@@ -60,15 +61,8 @@ def _chart(ysym: str, interval: str, rng: str) -> dict:
     return _get(url)
 
 
-def yahoo_candles(symbol: str, tf: str) -> dict | None:
-    ysym = YAHOO_MAP.get(symbol)
-    if not ysym:
-        return None
-    key = (symbol, tf)
-    now = time.time()
-    if key in _candle_cache and now - _candle_cache[key][0] < _CANDLE_TTL:
-        return _candle_cache[key][1]
-
+def _candles_from_chart(ysym: str, tf: str) -> list[dict] | None:
+    """Fetch a Yahoo chart for a raw Yahoo symbol and return line points."""
     interval, rng = _YF_TF.get(tf, ("1d", "6mo"))
     try:
         res = _chart(ysym, interval, rng)["chart"]["result"][0]
@@ -97,9 +91,40 @@ def yahoo_candles(symbol: str, tf: str) -> dict | None:
         o0 = opens[first_idx]
         if o0 is not None:
             points[0]["value"] = round(float(o0), 6)
+    return points
 
+
+def yahoo_candles(symbol: str, tf: str) -> dict | None:
+    ysym = YAHOO_MAP.get(symbol)
+    if not ysym:
+        return None
+    key = (symbol, tf)
+    now = time.time()
+    if key in _candle_cache and now - _candle_cache[key][0] < _CANDLE_TTL:
+        return _candle_cache[key][1]
+
+    points = _candles_from_chart(ysym, tf)
+    if points is None:
+        return None
     out = {"symbol": symbol, "tf": tf, "points": points}
     _candle_cache[key] = (now, out)
+    return out
+
+
+def yahoo_candles_raw(ysym: str, tf: str) -> dict | None:
+    """Candles for an arbitrary Yahoo symbol (no YAHOO_MAP entry needed).
+
+    Used by the Macro Dashboard to chart instruments outside the tradable
+    universe, e.g. the real Dollar index (DX-Y.NYB)."""
+    key = (ysym, tf)
+    now = time.time()
+    if key in _raw_candle_cache and now - _raw_candle_cache[key][0] < _CANDLE_TTL:
+        return _raw_candle_cache[key][1]
+    points = _candles_from_chart(ysym, tf)
+    if points is None:
+        return _raw_candle_cache.get(key, (0, None))[1]  # stale fallback
+    out = {"symbol": ysym, "tf": tf, "points": points}
+    _raw_candle_cache[key] = (now, out)
     return out
 
 

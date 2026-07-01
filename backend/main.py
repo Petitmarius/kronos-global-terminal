@@ -165,6 +165,13 @@ async def macro_releases():
     return await asyncio.to_thread(macro.build_releases)
 
 
+@app.get("/api/macro/candles")
+async def macro_candles(symbol: str, tf: str = "1M"):
+    """Line candles for an arbitrary Yahoo symbol (e.g. DX-Y.NYB, ^VIX) so the
+    dashboard can chart macro instruments outside the tradable universe."""
+    return await asyncio.to_thread(providers.yahoo_candles_raw, symbol, tf)
+
+
 @app.websocket("/ws/prices")
 async def ws_prices(ws: WebSocket):
     await HUB.connect(ws)

@@ -61,6 +61,10 @@ export async function fetchMacroReleases(): Promise<MacroReleases | null> {
   const r = await fetch('/api/macro/releases')
   return r.ok ? r.json() : null
 }
+export async function fetchMacroCandles(symbol: string, tf: string): Promise<Candles | null> {
+  const r = await fetch(`/api/macro/candles?symbol=${encodeURIComponent(symbol)}&tf=${encodeURIComponent(tf)}`)
+  return r.ok ? r.json() : null
+}
 
 export interface PriceHandlers {
   onSnapshot: (assets: Asset[], live: boolean) => void
