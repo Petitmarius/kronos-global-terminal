@@ -8,7 +8,6 @@ venv/
 .env
 backend/.env
 **/.env.local
-.streamlit/secrets.toml
 
 # node / frontend
 node_modules/

@@ -12,7 +12,7 @@ graphiques **TradingView**, ordres MARKET/LIMIT/STOP, stop-loss/take-profit, ale
 |---|---|
 | Frontend | React 18 · TypeScript · Vite · Zustand · [lightweight-charts](https://github.com/tradingview/lightweight-charts) |
 | Backend | FastAPI · Uvicorn · WebSockets · NumPy |
-| Données | **Yahoo Finance** (historique + cotations, sans clé) · **Finnhub** WS (ticks temps réel, clé optionnelle) |
+| Données | **Yahoo Finance** (historique + cotations, sans clé) · **Finnhub** (ticks temps réel + news, clé optionnelle) · **FRED** (éco/calendrier, clé optionnelle) |
 
 ## Démarrage
 
@@ -57,11 +57,18 @@ Tout fonctionne **sans aucune clé** (données réelles via Yahoo). Deux clés g
 
 ## Fonctionnalités
 
-- **Macro Dashboard** (onglet principal, bascule depuis le header) : courbe des taux, taux
-  directeurs, VIX / régime de risque, rotation sectorielle, heatmap cross-asset, DXY,
-  indicateurs économiques et dernières publications. Macro de marché **réelle** via Yahoo
-  (sans clé) ; indicateurs éco via **FRED** (clé gratuite dans `backend/.env`,
-  `FRED_API_KEY`) — sinon ces panneaux invitent à ajouter la clé (rien de simulé).
+- **Macro Dashboard** (onglet principal, bascule depuis le header) — vision institutionnelle :
+  - **Risk Barometer** : score composite **Risk-On/Risk-Off 0–100** (VIX, crédit HY/IG, actions vs
+    obligations, DXY, or) en cadran animé.
+  - **Courbe des taux** (interactive), **taux directeurs**, **VIX / régime de risque** (+ sparkline),
+    **US Dollar (DXY)**, **heatmap cross-asset** (tuiles cliquables → terminal).
+  - **Sector RRG** : *Relative Rotation Graph* des 11 secteurs vs SPY (4 quadrants, traînées au survol).
+  - **Corrélations cross-asset** : heatmap Pearson des rendements journaliers sur 3 mois (numpy).
+  - **Live Wire Center** : fil de **news** (Finnhub + repli RSS Yahoo, pastille d'importance) et
+    **calendrier économique** des prochaines publications (dates FRED).
+  - **Indicateurs économiques** (CPI, PIB, chômage, taux) via **FRED**.
+  - Macro de marché **réelle** via Yahoo (sans clé) ; l'éco vient de **FRED** (clé gratuite dans
+    `backend/.env`, `FRED_API_KEY`) — sinon ces panneaux invitent à ajouter la clé (**rien n'est simulé**).
 - **Watchlist** personnalisable : recherche n'importe quel marché (actions, indices, forex, crypto,
   matières premières), ajout/suppression, **sauvegardée** (localStorage).
 - **Graphique néon** TradingView · durées **1D · 1W · 1M · 3M · 6M · YTD · 1Y · 5Y · MAX**
@@ -82,9 +89,8 @@ spread que la grille pour rester cohérent. Aucun ordre n'est envoyé à un vrai
 ## Structure
 
 ```
-backend/    main.py · feeds.py · market.py · providers.py · assets.py · hub.py · config.py
-frontend/   src/{store.ts, api.ts, indicators.ts, components/*}
-legacy-streamlit/   prototype Streamlit initial (référence)
+backend/    main.py · feeds.py · market.py · providers.py · macro.py · assets.py · hub.py · config.py
+frontend/   src/{store.ts, api.ts, indicators.ts, components/*, components/macro/*}
 CLAUDE.md   guide pour agents IA
 dev.ps1     lance backend + frontend
 ```
