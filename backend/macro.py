@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import datetime
 import email.utils
+import re
 import time
 import urllib.parse
 import urllib.request
@@ -307,18 +308,40 @@ def _finnhub_get(path: str, params: dict):
         return None
 
 
+_IMPACT_HIGH = ("fed", "fomc", "rate cut", "rate hike", "inflation", "cpi", "recession",
+                "jobs report", "payroll", "gdp", "war", "tariff", "default", "crisis",
+                "crash", "powell", "treasury", "sanction", "central bank", "jobless",
+                "tension", "tensions", "conflict", "opec", "shutdown", "election")
+_IMPACT_MED = ("earnings", "stocks", "oil", "dollar", "bitcoin", "crypto", "merger", "ipo",
+               "guidance", "downgrade", "upgrade", "revenue", "profit", "shares", "fund")
+
+
+def _matches(h: str, words: tuple[str, ...]) -> bool:
+    return any(re.search(rf"\b{re.escape(k)}\b", h) for k in words)
+
+
+def _news_impact(headline: str) -> str:
+    h = (headline or "").lower()
+    if _matches(h, _IMPACT_HIGH):
+        return "high"
+    if _matches(h, _IMPACT_MED):
+        return "med"
+    return "low"
+
+
 def _news_from_finnhub() -> list[dict]:
     data = _finnhub_get("news", {"category": "general"})
     if not isinstance(data, list):
         return []
     out = []
-    for it in data[:24]:
+    for it in data[:30]:
         url, head = it.get("url"), it.get("headline")
         if not url or not head:
             continue
         out.append({"headline": head, "url": url,
                     "source": it.get("source") or "Finnhub",
                     "datetime": int(it.get("datetime", 0)) * 1000,
+                    "impact": _news_impact(head),
                     "summary": (it.get("summary") or "")[:200]})
     return out
 
@@ -346,7 +369,8 @@ def _news_from_yahoo() -> list[dict]:
             except (TypeError, ValueError):
                 ts = 0
         out.append({"headline": title, "url": link, "source": "Yahoo Finance",
-                    "datetime": ts, "summary": (item.findtext("description") or "")[:200]})
+                    "datetime": ts, "impact": _news_impact(title),
+                    "summary": (item.findtext("description") or "")[:200]})
     return out
 
 
@@ -364,48 +388,45 @@ def fetch_news() -> dict:
     return out
 
 
-def _fmt_num(v: float, unit: str) -> str:
-    if unit == "K":
-        return f"{'+' if v >= 0 else ''}{v:,.0f}K"
-    return f"{v:.1f}{unit}"
+# Upcoming economic-release schedule (real forward dates from FRED). release_name
+# substring -> short display label. Only the market-moving reports are kept.
+CAL_RELEASES = [
+    ("Employment Situation", "Employment Situation (NFP)"),
+    ("Consumer Price Index", "CPI"),
+    ("Producer Price Index", "PPI"),
+    ("Gross Domestic Product", "GDP"),
+    ("Personal Income and Outlays", "PCE · Personal Income"),
+    ("Advance Monthly Sales for Retail", "Retail Sales"),
+    ("Job Openings and Labor Turnover", "JOLTS Job Openings"),
+]
 
 
-def _calendar_from_finnhub() -> list[dict]:
-    today = datetime.date.today()
-    frm = (today - datetime.timedelta(days=21)).isoformat()
-    to = (today + datetime.timedelta(days=3)).isoformat()
-    data = _finnhub_get("calendar/economic", {"from": frm, "to": to})
-    events = data.get("economicCalendar") if isinstance(data, dict) else None
-    if not events:
-        return []
-    out = []
-    for e in events:
-        if e.get("country") != "US" or e.get("actual") is None:
-            continue  # US only; drop rows with no actual print (no empty dashes)
-        unit = e.get("unit") or ""
-        est = e.get("estimate")
-        out.append({"event": e.get("event") or "",
-                    "date": (e.get("time") or "")[:10],
-                    "actual": f"{e['actual']:g}{unit}",
-                    "extra": f"{est:g}{unit}" if est is not None else None})
-    out.sort(key=lambda x: x["date"], reverse=True)
-    return out[:14]
-
-
-def _calendar_from_fred() -> list[dict]:
+def _fred_release_calendar() -> list[dict]:
     if not fred_available():
         return []
-    out = []
-    for sid, label, units, unit in RELEASES_FRED:
-        obs = fred_observations(sid, units=units, limit=6)
-        value, prior = latest_prior(obs)
-        if value is None:
+    today = datetime.date.today().isoformat()
+    # desc puts the furthest-future scheduled dates first; keep upcoming, then
+    # re-sort ascending for a proper agenda.
+    # realtime_start=today + asc returns only *upcoming* scheduled dates, nearest
+    # first — exactly the agenda we want.
+    data = _fred_get("releases/dates", {
+        "realtime_start": today,
+        "include_release_dates_with_no_data": "true",
+        "sort_order": "asc", "limit": "1000",  # 1000 is FRED's max page size
+    })
+    rows = (data or {}).get("release_dates") or []
+    out, seen = [], set()
+    for r in rows:
+        date = r.get("date") or ""
+        if date < today:
             continue
-        out.append({"event": label, "date": obs[-1]["date"] if obs else "",
-                    "actual": _fmt_num(value, unit),
-                    "extra": _fmt_num(prior, unit) if prior is not None else None})
-    out.sort(key=lambda x: x["date"], reverse=True)
-    return out
+        label = next((lbl for sub, lbl in CAL_RELEASES if sub in (r.get("release_name") or "")), None)
+        if not label or (date, label) in seen:
+            continue
+        seen.add((date, label))
+        out.append({"date": date, "event": label})
+    out.sort(key=lambda x: x["date"])
+    return out[:14]
 
 
 def build_calendar() -> dict:
@@ -413,12 +434,7 @@ def build_calendar() -> dict:
     now = time.time()
     if _cal_cache and now - _cal_cache[0] < _CAL_TTL:
         return _cal_cache[1]
-    items = _calendar_from_finnhub()
-    if items:
-        out = {"available": True, "source": "finnhub", "col4": "Consensus", "items": items}
-    else:
-        fred_items = _calendar_from_fred()
-        out = ({"available": True, "source": "fred", "col4": "Précédent", "items": fred_items}
-               if fred_items else {"available": False, "source": None, "col4": "Consensus", "items": []})
+    items = _fred_release_calendar()
+    out = {"available": bool(items), "source": "fred" if items else None, "items": items}
     _cal_cache = (now, out)
     return out

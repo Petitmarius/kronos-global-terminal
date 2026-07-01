@@ -91,16 +91,13 @@ def test_build_releases_unavailable(monkeypatch):
     assert macro.build_releases() == {"available": False, "items": []}
 
 
-def test_fmt_num_payrolls_thousands():
-    assert macro._fmt_num(150.0, "K") == "+150K"
-    assert macro._fmt_num(-30.0, "K") == "-30K"
-
-def test_fmt_num_percent():
-    assert macro._fmt_num(3.1, "%") == "3.1%"
+def test_news_impact_levels():
+    assert macro._news_impact("Fed signals rate cut amid inflation") == "high"
+    assert macro._news_impact("Apple earnings beat on strong revenue") == "med"
+    assert macro._news_impact("Local bakery wins award") == "low"
 
 def test_build_calendar_unavailable(monkeypatch):
     monkeypatch.setattr(config, "FRED_API_KEY", "")
-    monkeypatch.setattr(config, "FINNHUB_API_KEY", "")
     macro._cal_cache = None
     c = macro.build_calendar()
     assert c["available"] is False and c["items"] == []
