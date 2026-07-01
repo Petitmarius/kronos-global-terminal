@@ -1,3 +1,4 @@
+import config
 import macro
 import providers
 
@@ -51,3 +52,10 @@ def test_quote_from_meta_computes_pct():
 
 def test_quote_from_meta_missing_returns_none():
     assert providers.quote_from_meta({"regularMarketPrice": 0}) is None
+
+
+def test_fred_unavailable_without_key(monkeypatch):
+    monkeypatch.setattr(config, "FRED_API_KEY", "")
+    assert macro.fred_available() is False
+    assert macro.fred_observations("CPIAUCSL") == []
+    assert macro.fred_meta("CPIAUCSL") == {}
