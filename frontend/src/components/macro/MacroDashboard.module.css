@@ -162,3 +162,58 @@
 .agendaMon { font: 700 7px/1 'JetBrains Mono', monospace; letter-spacing: .5px; color: #42A5F5; text-transform: uppercase; }
 .agendaEvents { display: flex; flex-direction: column; gap: 3px; }
 .agendaEvent { font: 700 11px/1.3 'JetBrains Mono', monospace; color: #cfd8e3; }
+
+/* --- Risk Barometer (hero) --- */
+.riskWrap { display: flex; align-items: center; gap: 28px; height: 100%; }
+.riskScoreBlock { flex: 0 0 auto; text-align: center; min-width: 118px; }
+.riskScore { font: 800 56px/1 'JetBrains Mono', monospace; }
+.riskLabel { font: 800 14px/1 'JetBrains Mono', monospace; letter-spacing: 1px; margin-top: 6px; }
+.riskCaption { font: 700 8px/1 'JetBrains Mono', monospace; letter-spacing: 1.5px; color: var(--dim); margin-top: 8px; }
+.riskMeter { flex: 1 1 auto; min-width: 120px; }
+.riskTrack {
+  position: relative; height: 16px; border-radius: 8px;
+  background: linear-gradient(90deg, #FF1744 0%, #FF9100 50%, #00E676 100%);
+  box-shadow: inset 0 0 10px rgba(0, 0, 0, .4);
+}
+.riskMarker { position: absolute; top: -5px; bottom: -5px; transform: translateX(-50%); display: flex; align-items: center; }
+.riskMarkerDot { width: 16px; height: 26px; border: 3px solid #fff; border-radius: 5px; background: rgba(12, 17, 22, .6); }
+.riskScale { display: flex; justify-content: space-between; margin-top: 9px; font: 700 9px/1 'JetBrains Mono', monospace; letter-spacing: 1px; color: var(--dim); }
+.riskDrivers { flex: 0 0 auto; display: grid; grid-template-columns: repeat(5, minmax(72px, 1fr)); gap: 10px; }
+.riskDriverTop { display: flex; justify-content: space-between; margin-bottom: 4px; }
+.riskDriverName { font: 700 8px/1.1 'JetBrains Mono', monospace; color: #cfd8e3; }
+.riskDriverVal { font: 800 10px/1 'JetBrains Mono', monospace; }
+.riskDriverBar { height: 6px; border-radius: 3px; background: rgba(255, 255, 255, .06); overflow: hidden; }
+.riskDriverFill { height: 100%; border-radius: 3px; }
+
+/* --- Correlation matrix --- */
+.corrWrap { display: flex; flex-direction: column; height: 100%; gap: 6px; }
+.corrCaption { font: 700 10px/1.2 'JetBrains Mono', monospace; color: #cfd8e3; min-height: 13px; }
+.corrHint { color: var(--dim); }
+.corrGrid { flex: 1; display: grid; gap: 2px; }
+.corrHead { display: flex; align-items: center; justify-content: center; font: 700 8px/1 'JetBrains Mono', monospace; color: var(--dim); }
+.corrHeadRow { justify-content: flex-end; padding-right: 4px; }
+.corrHeadOn { color: #eef3f8; }
+.corrCell {
+  display: flex; align-items: center; justify-content: center; min-height: 17px; border-radius: 3px;
+  font: 700 9px/1 'JetBrains Mono', monospace; color: #e6edf3; cursor: default;
+}
+
+/* --- RRG (relative rotation graph) --- */
+.rrgWrap { position: relative; height: 100%; min-height: 210px; overflow: hidden; }
+.rrgQuad { position: absolute; width: 50%; height: 50%; padding: 5px 7px; font: 700 8px/1 'JetBrains Mono', monospace; letter-spacing: 1px; display: flex; }
+.rrgLeading { top: 0; right: 0; background: rgba(0, 230, 118, .05); color: rgba(0, 230, 118, .55); justify-content: flex-end; }
+.rrgWeakening { bottom: 0; right: 0; background: rgba(255, 145, 0, .05); color: rgba(255, 145, 0, .55); justify-content: flex-end; align-items: flex-end; }
+.rrgImproving { top: 0; left: 0; background: rgba(66, 165, 245, .05); color: rgba(66, 165, 245, .55); }
+.rrgLagging { bottom: 0; left: 0; background: rgba(255, 23, 68, .05); color: rgba(255, 23, 68, .55); align-items: flex-end; }
+.rrgAxisV { position: absolute; left: 50%; top: 0; bottom: 0; width: 1px; background: rgba(96, 125, 139, .3); }
+.rrgAxisH { position: absolute; top: 50%; left: 0; right: 0; height: 1px; background: rgba(96, 125, 139, .3); }
+.rrgSvg { position: absolute; inset: 0; width: 100%; height: 100%; }
+.rrgDot { position: absolute; transform: translate(-50%, -50%); display: flex; align-items: center; gap: 4px; cursor: default; transition: opacity .15s; z-index: 2; white-space: nowrap; }
+.rrgMark { width: 9px; height: 9px; border-radius: 50%; flex: 0 0 auto; }
+.rrgLabel { font: 700 8px/1 'JetBrains Mono', monospace; color: #cfd8e3; }
+.rrgTip {
+  position: absolute; transform: translate(-50%, -170%);
+  background: rgba(12, 17, 22, .95); border: 1px solid var(--border); border-radius: 4px;
+  padding: 3px 6px; font: 700 8px/1 'JetBrains Mono', monospace; color: #eef3f8;
+  white-space: nowrap; pointer-events: none; z-index: 5;
+}

@@ -148,6 +148,8 @@ export interface Account {
 export interface SectorPerf { symbol: string; label: string; pct: number }
 export interface CrossAssetCell { symbol: string; label: string; pct: number; local: string | null }
 export interface CrossAssetBucket { key: string; label: string; items: CrossAssetCell[] }
+export interface RiskDriver { name: string; value: number }
+export interface MacroRisk { score: number; label: string; drivers: RiskDriver[] }
 export interface MacroBoard {
   ts: number
   rates: {
@@ -158,7 +160,12 @@ export interface MacroBoard {
   dxy: { level: number | null; pct: number | null }
   sectors: SectorPerf[]
   crossAsset: CrossAssetBucket[]
+  risk: MacroRisk | null
 }
+export interface MacroCorrelations { available: boolean; labels: string[]; matrix: number[][] }
+export interface RrgPoint { x: number; y: number }
+export interface RrgSector { symbol: string; label: string; trail: RrgPoint[]; quadrant: string }
+export interface MacroRrg { available: boolean; sectors: RrgSector[] }
 export interface EconSeries {
   key: string; label: string; value: number | null; prior: number | null; unit: string; spark: number[]
 }

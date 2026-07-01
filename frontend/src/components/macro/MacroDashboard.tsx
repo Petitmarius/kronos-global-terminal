@@ -1,18 +1,21 @@
 import { useEffect, useState } from 'react'
 
 import {
-  fetchMacroBoard, fetchMacroCalendar, fetchMacroCurve, fetchMacroEcon, fetchMacroNews,
+  fetchMacroBoard, fetchMacroCalendar, fetchMacroCorrelations, fetchMacroCurve, fetchMacroEcon,
+  fetchMacroNews, fetchMacroRrg,
 } from '../../api'
 import type {
-  MacroBoard, MacroCalendar, MacroCurve, MacroEcon, MacroNews,
+  MacroBoard, MacroCalendar, MacroCorrelations, MacroCurve, MacroEcon, MacroNews, MacroRrg,
 } from '../../types'
 import LiveWireCenter from './LiveWireCenter'
 import Panel from './Panel'
+import CorrelationMatrixPanel from './panels/CorrelationMatrixPanel'
 import CrossAssetPanel from './panels/CrossAssetPanel'
 import DollarPanel from './panels/DollarPanel'
 import EconIndicatorsPanel from './panels/EconIndicatorsPanel'
 import RatesPanel from './panels/RatesPanel'
-import SectorRotationPanel from './panels/SectorRotationPanel'
+import RiskBarometer from './panels/RiskBarometer'
+import RrgPanel from './panels/RrgPanel'
 import VolatilityPanel from './panels/VolatilityPanel'
 import YieldCurvePanel from './panels/YieldCurvePanel'
 import styles from './MacroDashboard.module.css'
@@ -23,6 +26,8 @@ export default function MacroDashboard() {
   const [curve, setCurve] = useState<MacroCurve | null>(null)
   const [news, setNews] = useState<MacroNews | null>(null)
   const [calendar, setCalendar] = useState<MacroCalendar | null>(null)
+  const [corr, setCorr] = useState<MacroCorrelations | null>(null)
+  const [rrg, setRrg] = useState<MacroRrg | null>(null)
 
   useEffect(() => {
     let alive = true
@@ -32,6 +37,8 @@ export default function MacroDashboard() {
       void fetchMacroEcon().then((e) => alive && e && setEcon(e))
       void fetchMacroCurve().then((c) => alive && c && setCurve(c))
       void fetchMacroCalendar().then((c) => alive && c && setCalendar(c))
+      void fetchMacroCorrelations().then((c) => alive && c && setCorr(c))
+      void fetchMacroRrg().then((r) => alive && r && setRrg(r))
     }
     pullBoard(); pullNews(); pullSlow()
     const b = setInterval(pullBoard, 20_000)
@@ -45,6 +52,11 @@ export default function MacroDashboard() {
   return (
     <div className={styles.dash}>
       <div className={styles.grid}>
+        {/* Hero */}
+        <Panel title="Risk Barometer" source="COMPOSITE" span={3}>
+          <RiskBarometer risk={board?.risk ?? null} />
+        </Panel>
+
         {/* Row 1 */}
         <Panel title="Yield Curve" source="FRED">
           <YieldCurvePanel curve={curve} />
@@ -64,21 +76,25 @@ export default function MacroDashboard() {
           {board ? <DollarPanel dxy={board.dxy} /> : loading}
         </Panel>
 
-        {/* Row 3 — left column stacks Sector Rotation + Economic Indicators,
-            right column is the tall Live Wire Center */}
-        <Panel title="Sector Rotation" source="LIVE" span={2}>
-          {board ? <SectorRotationPanel sectors={board.sectors} /> : loading}
+        {/* Rows 3–4 — RRG then Correlations on the left, tall Live Wire on the right */}
+        <Panel title="Sector Rotation · RRG" source="LIVE" span={2}>
+          <RrgPanel rrg={rrg} />
         </Panel>
         <Panel title="Live Wire Center" source="NEWS · FRED" rowSpan={2} noPad>
           <LiveWireCenter news={news} calendar={calendar} />
         </Panel>
-        <Panel title="Economic Indicators" source="FRED" span={2}>
+        <Panel title="Cross-Asset Correlations" source="LIVE" span={2}>
+          <CorrelationMatrixPanel corr={corr} />
+        </Panel>
+
+        {/* Row 5 */}
+        <Panel title="Economic Indicators" source="FRED" span={3}>
           <EconIndicatorsPanel econ={econ} />
         </Panel>
       </div>
       <footer className={styles.disclaimer}>
-        Market macro (rates, VIX, DXY, sectors, cross-asset) via Yahoo Finance ·
-        economics via FRED · news via Finnhub / Yahoo. No values are simulated.
+        Market macro (risk, rates, VIX, DXY, sectors, cross-asset, correlations, RRG) via Yahoo
+        Finance · economics via FRED · news via Finnhub / Yahoo. No values are simulated.
       </footer>
     </div>
   )
