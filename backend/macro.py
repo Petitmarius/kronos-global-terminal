@@ -7,8 +7,12 @@ FRED functions degrade to {"available": False} when no key is configured.
 """
 from __future__ import annotations
 
+import datetime
+import email.utils
 import time
 import urllib.parse
+import urllib.request
+import xml.etree.ElementTree as ET
 
 import config
 import providers
@@ -86,11 +90,14 @@ def _fred_get(path: str, params: dict) -> dict | None:
 
 
 def fred_observations(series_id: str, *, units: str = "lin", limit: int = 40) -> list[dict]:
+    # sort_order=desc + limit -> the *most recent* `limit` observations; reverse
+    # so callers still receive them oldest -> newest (latest_prior/spark expect that).
     data = _fred_get("series/observations", {
         "series_id": series_id, "units": units,
-        "sort_order": "asc", "limit": str(limit),
+        "sort_order": "desc", "limit": str(limit),
     })
-    return (data or {}).get("observations", []) if data else []
+    obs = (data or {}).get("observations", []) if data else []
+    return list(reversed(obs))
 
 
 def fred_meta(series_id: str) -> dict:
@@ -128,6 +135,15 @@ YIELDS_YH = {"m3": "^IRX", "y5": "^FVX", "y10": "^TNX", "y30": "^TYX"}
 VIX_YH = "^VIX"
 DXY_YH = "DX-Y.NYB"
 
+# cross-asset Yahoo symbol -> our tradable symbol (for click-through to terminal).
+# Instruments with no tradable equivalent (bond ETFs, copper, DXY) map to None.
+LOCAL_MAP = {
+    "^GSPC": "SPX500", "^NDX": "NAS100", "^DJI": "US30", "^GDAXI": "GER40", "^FTSE": "UK100",
+    "BTC-USD": "BTCUSD", "ETH-USD": "ETHUSD", "SOL-USD": "SOLUSD",
+    "GC=F": "XAUUSD", "SI=F": "XAGUSD", "CL=F": "WTI", "NG=F": "NATGAS",
+    "EURUSD=X": "EURUSD", "USDJPY=X": "USDJPY", "GBPUSD=X": "GBPUSD",
+}
+
 _board_cache: tuple[float, dict] | None = None
 _BOARD_TTL = 20.0
 
@@ -159,7 +175,8 @@ def build_board(quotes: dict[str, dict]) -> dict:
         key=lambda x: x["pct"], reverse=True)
     cross = []
     for key, label, items in CROSS_ASSET:
-        cells = [{"symbol": s, "label": lbl, "pct": round(quotes[s]["pct"], 2)}
+        cells = [{"symbol": s, "label": lbl, "pct": round(quotes[s]["pct"], 2),
+                  "local": LOCAL_MAP.get(s)}
                  for s, lbl in items if s in quotes]
         cross.append({"key": key, "label": label, "items": cells})
     return {
@@ -259,3 +276,149 @@ def build_releases() -> dict:
                       "unit": unit, "period": period,
                       "updated": (meta.get("updated") or "")[:10]})
     return {"available": True, "items": sort_releases(items)}
+
+
+# --- Live Wire: financial news + economic calendar --------------------------
+
+_FINNHUB_BASE = "https://finnhub.io/api/v1"
+_news_cache: tuple[float, dict] | None = None
+_NEWS_TTL = 300.0
+_cal_cache: tuple[float, dict] | None = None
+_CAL_TTL = 1800.0
+
+
+def _http_text(url: str, timeout: float = 8.0) -> str | None:
+    try:
+        req = urllib.request.Request(url, headers={"User-Agent": providers._UA})
+        with urllib.request.urlopen(req, timeout=timeout) as r:
+            return r.read().decode("utf-8", "replace")
+    except Exception:  # noqa: BLE001
+        return None
+
+
+def _finnhub_get(path: str, params: dict):
+    if not config.FINNHUB_API_KEY:
+        return None
+    q = {**params, "token": config.FINNHUB_API_KEY}
+    url = f"{_FINNHUB_BASE}/{path}?{urllib.parse.urlencode(q)}"
+    try:
+        return providers._get(url)
+    except Exception:  # noqa: BLE001 — premium endpoints 403 on the free tier
+        return None
+
+
+def _news_from_finnhub() -> list[dict]:
+    data = _finnhub_get("news", {"category": "general"})
+    if not isinstance(data, list):
+        return []
+    out = []
+    for it in data[:24]:
+        url, head = it.get("url"), it.get("headline")
+        if not url or not head:
+            continue
+        out.append({"headline": head, "url": url,
+                    "source": it.get("source") or "Finnhub",
+                    "datetime": int(it.get("datetime", 0)) * 1000,
+                    "summary": (it.get("summary") or "")[:200]})
+    return out
+
+
+def _news_from_yahoo() -> list[dict]:
+    url = ("https://feeds.finance.yahoo.com/rss/2.0/headline?"
+           + urllib.parse.urlencode({"s": "^GSPC,^IXIC,^DJI", "region": "US", "lang": "en-US"}))
+    text = _http_text(url)
+    if not text:
+        return []
+    try:
+        root = ET.fromstring(text)
+    except ET.ParseError:
+        return []
+    out = []
+    for item in root.iter("item"):
+        title, link = item.findtext("title"), item.findtext("link")
+        if not title or not link:
+            continue
+        ts = 0
+        pub = item.findtext("pubDate")
+        if pub:
+            try:
+                ts = int(email.utils.parsedate_to_datetime(pub).timestamp() * 1000)
+            except (TypeError, ValueError):
+                ts = 0
+        out.append({"headline": title, "url": link, "source": "Yahoo Finance",
+                    "datetime": ts, "summary": (item.findtext("description") or "")[:200]})
+    return out
+
+
+def fetch_news() -> dict:
+    global _news_cache
+    now = time.time()
+    if _news_cache and now - _news_cache[0] < _NEWS_TTL:
+        return _news_cache[1]
+    items, source = _news_from_finnhub(), "finnhub"
+    if not items:
+        items, source = _news_from_yahoo(), "yahoo"
+    items.sort(key=lambda x: x["datetime"], reverse=True)
+    out = {"available": bool(items), "source": source, "items": items[:18]}
+    _news_cache = (now, out)
+    return out
+
+
+def _fmt_num(v: float, unit: str) -> str:
+    if unit == "K":
+        return f"{'+' if v >= 0 else ''}{v:,.0f}K"
+    return f"{v:.1f}{unit}"
+
+
+def _calendar_from_finnhub() -> list[dict]:
+    today = datetime.date.today()
+    frm = (today - datetime.timedelta(days=21)).isoformat()
+    to = (today + datetime.timedelta(days=3)).isoformat()
+    data = _finnhub_get("calendar/economic", {"from": frm, "to": to})
+    events = data.get("economicCalendar") if isinstance(data, dict) else None
+    if not events:
+        return []
+    out = []
+    for e in events:
+        if e.get("country") != "US" or e.get("actual") is None:
+            continue  # US only; drop rows with no actual print (no empty dashes)
+        unit = e.get("unit") or ""
+        est = e.get("estimate")
+        out.append({"event": e.get("event") or "",
+                    "date": (e.get("time") or "")[:10],
+                    "actual": f"{e['actual']:g}{unit}",
+                    "extra": f"{est:g}{unit}" if est is not None else None})
+    out.sort(key=lambda x: x["date"], reverse=True)
+    return out[:14]
+
+
+def _calendar_from_fred() -> list[dict]:
+    if not fred_available():
+        return []
+    out = []
+    for sid, label, units, unit in RELEASES_FRED:
+        obs = fred_observations(sid, units=units, limit=6)
+        value, prior = latest_prior(obs)
+        if value is None:
+            continue
+        out.append({"event": label, "date": obs[-1]["date"] if obs else "",
+                    "actual": _fmt_num(value, unit),
+                    "extra": _fmt_num(prior, unit) if prior is not None else None})
+    out.sort(key=lambda x: x["date"], reverse=True)
+    return out
+
+
+def build_calendar() -> dict:
+    global _cal_cache
+    now = time.time()
+    if _cal_cache and now - _cal_cache[0] < _CAL_TTL:
+        return _cal_cache[1]
+    items = _calendar_from_finnhub()
+    if items:
+        out = {"available": True, "source": "finnhub", "col4": "Consensus", "items": items}
+    else:
+        fred_items = _calendar_from_fred()
+        out = ({"available": True, "source": "fred", "col4": "Précédent", "items": fred_items}
+               if fred_items else {"available": False, "source": None, "col4": "Consensus", "items": []})
+    _cal_cache = (now, out)
+    return out

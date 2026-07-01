@@ -89,3 +89,33 @@ def test_build_curve_unavailable(monkeypatch):
 def test_build_releases_unavailable(monkeypatch):
     monkeypatch.setattr(config, "FRED_API_KEY", "")
     assert macro.build_releases() == {"available": False, "items": []}
+
+
+def test_fmt_num_payrolls_thousands():
+    assert macro._fmt_num(150.0, "K") == "+150K"
+    assert macro._fmt_num(-30.0, "K") == "-30K"
+
+def test_fmt_num_percent():
+    assert macro._fmt_num(3.1, "%") == "3.1%"
+
+def test_build_calendar_unavailable(monkeypatch):
+    monkeypatch.setattr(config, "FRED_API_KEY", "")
+    monkeypatch.setattr(config, "FINNHUB_API_KEY", "")
+    macro._cal_cache = None
+    c = macro.build_calendar()
+    assert c["available"] is False and c["items"] == []
+
+def test_fetch_news_unavailable(monkeypatch):
+    monkeypatch.setattr(config, "FINNHUB_API_KEY", "")
+    monkeypatch.setattr(macro, "_news_from_yahoo", lambda: [])
+    macro._news_cache = None
+    n = macro.fetch_news()
+    assert n["available"] is False and n["items"] == []
+
+def test_build_board_cell_has_local():
+    quotes = {s: {"price": 1.0, "prevClose": 1.0, "pct": 0.0,
+                  "open": None, "high": None, "low": None} for s in macro.board_symbols()}
+    b = macro.build_board(quotes)
+    eq = next(c for c in b["crossAsset"] if c["key"] == "equities")
+    sp = next(cell for cell in eq["items"] if cell["symbol"] == "^GSPC")
+    assert sp["local"] == "SPX500"

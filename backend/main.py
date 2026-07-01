@@ -172,6 +172,16 @@ async def macro_candles(symbol: str, tf: str = "1M"):
     return await asyncio.to_thread(providers.yahoo_candles_raw, symbol, tf)
 
 
+@app.get("/api/macro/news")
+async def macro_news():
+    return await asyncio.to_thread(macro.fetch_news)
+
+
+@app.get("/api/macro/calendar")
+async def macro_calendar():
+    return await asyncio.to_thread(macro.build_calendar)
+
+
 @app.websocket("/ws/prices")
 async def ws_prices(ws: WebSocket):
     await HUB.connect(ws)
