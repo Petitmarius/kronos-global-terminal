@@ -29,9 +29,11 @@ npm run dev
 ```
 Sous Windows : `./dev.ps1` lance les deux. Ouvre **http://localhost:5173**.
 
-Tout fonctionne **sans aucune clé** (données réelles via Yahoo). Pour des ticks crypto/forex/actions
-ultra-réactifs en plus, ajoute une clé Finnhub gratuite : `cp backend/.env.example backend/.env` puis
-`FINNHUB_API_KEY=...` et relance le backend.
+Tout fonctionne **sans aucune clé** (données réelles via Yahoo). Deux clés gratuites optionnelles :
+`cp backend/.env.example backend/.env` puis renseigne-les et relance le backend.
+- `FINNHUB_API_KEY` — ticks crypto/forex/actions ultra-réactifs.
+- `FRED_API_KEY` — données économiques du Macro Dashboard (CPI, PIB, chômage, taux, courbe,
+  publications). Sans elle, ces panneaux affichent un état « add key » (rien n'est simulé).
 
 ## Architecture
 
@@ -55,6 +57,11 @@ ultra-réactifs en plus, ajoute une clé Finnhub gratuite : `cp backend/.env.exa
 
 ## Fonctionnalités
 
+- **Macro Dashboard** (onglet principal, bascule depuis le header) : courbe des taux, taux
+  directeurs, VIX / régime de risque, rotation sectorielle, heatmap cross-asset, DXY,
+  indicateurs économiques et dernières publications. Macro de marché **réelle** via Yahoo
+  (sans clé) ; indicateurs éco via **FRED** (clé gratuite dans `backend/.env`,
+  `FRED_API_KEY`) — sinon ces panneaux invitent à ajouter la clé (rien de simulé).
 - **Watchlist** personnalisable : recherche n'importe quel marché (actions, indices, forex, crypto,
   matières premières), ajout/suppression, **sauvegardée** (localStorage).
 - **Graphique néon** TradingView · durées **1D · 1W · 1M · 3M · 6M · YTD · 1Y · 5Y · MAX**

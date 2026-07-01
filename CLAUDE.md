@@ -28,17 +28,18 @@ Or `./dev.ps1` (Windows) to launch both. Production check: `cd frontend && npm r
 - **SL/TP** auto-close in `applyQuotes`; **price alerts** fire there too; both raise toasts (`Toasts.tsx`).
 - **Account**: Balance = 50k + realized P&L; Equity = Balance + unrealized; P&L Today = realized-today + unrealized (`store.ts computeAccount`).
 - **Watchlist** is user-curated and **persisted in localStorage** (`apex.watchlist`, `apex.customs`, `apex.sim`). Search adds any Yahoo symbol; custom symbols get a clean display ticker (`^FCHI`→`FCHI`, `MC.PA`→`MC`) while the Yahoo symbol stays internal, and are re-registered on reload (`App.tsx`).
+- **Macro Dashboard** (`components/macro/`): a second primary view toggled from the Header (`store.view`, persisted `apex.view`). Backend `macro.py` serves `/api/macro/board` (Yahoo: rates majors, VIX, DXY, sectors, cross-asset; warmed every 30s by `macro_loop`) and FRED-backed `/api/macro/econ|curve|releases` (return `{"available": false}` without `FRED_API_KEY`). Nothing is simulated — FRED panels show an "add key" state instead. Yields are run through `macro.normalize_yield` (Yahoo sometimes quotes rate indices ×10). The DXY sparkline uses USDJPY as a shape proxy (the headline number is the real DXY).
 
 ## Data caveats (be honest with the user)
 - The **order book is simulated** — no free L2 feed exists. Its bid/ask derive from `asset.stats.spread` so it stays consistent with the market-data grid. Volume/sizes are synthetic.
 - `stats.spread`, `volume`, 52W hi/lo for base assets are synthetic; price / change% / OHLC / history are real (Yahoo).
 
 ## Layout map
-- backend: `main.py` (REST + `/ws/prices`), `feeds.py` (poll/baseline/finnhub/simulator loops), `market.py` (state, synthetic candles, order book, register custom), `providers.py` (Yahoo candles/quote/search + `YAHOO_MAP`, `_YF_TF`), `assets.py` (universe + `FINNHUB_MAP`), `hub.py`, `config.py`.
-- frontend `src/`: `store.ts` (Zustand + persistence + SL/TP/alert/pending engine in `applyQuotes`), `api.ts` (REST + reconnecting WS), `components/` (Header, Watchlist, CenterPanel, PriceChart, OrderPanel, Toasts), `indicators.ts`, `types.ts`, `format.ts`, `constants.ts`.
+- backend: `main.py` (REST + `/ws/prices`), `feeds.py` (poll/baseline/finnhub/simulator loops), `market.py` (state, synthetic candles, order book, register custom), `providers.py` (Yahoo candles/quote/search + `YAHOO_MAP`, `_YF_TF`, `yahoo_quote_raw`), `macro.py` (macro board + FRED econ/curve/releases, pure helpers tested in `tests/test_macro.py`), `assets.py` (universe + `FINNHUB_MAP`), `hub.py`, `config.py`.
+- frontend `src/`: `store.ts` (Zustand + persistence + SL/TP/alert/pending engine in `applyQuotes`), `api.ts` (REST + reconnecting WS), `components/` (Header, Watchlist, CenterPanel, PriceChart, OrderPanel, Toasts, `macro/` = MacroDashboard + Panel + `panels/*`), `indicators.ts`, `types.ts`, `format.ts`, `constants.ts`.
 
 ## Gotchas
 - Runs on **Python 3.14 / Node 24**. Use `width='stretch'` not `use_container_width` (legacy only).
 - On Windows, `uvicorn --reload` spawns a worker child that can keep holding port 8000 after the parent is killed. Free it with `Get-Process python | Stop-Process -Force` (filtering by command line misses the multiprocessing-spawn child). Prefer running without `--reload`.
-- `backend/.env` holds `FINNHUB_API_KEY` — gitignored, never commit it.
+- `backend/.env` holds `FINNHUB_API_KEY` and `FRED_API_KEY` — gitignored, never commit it (see `backend/.env.example`).
 - Yahoo may occasionally rate-limit (429); the code falls back to last prices / synthetic candles without crashing.
