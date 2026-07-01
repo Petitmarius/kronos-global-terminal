@@ -142,3 +142,32 @@ export interface Account {
   margin: number
   free: number
 }
+
+// --- Macro Dashboard --------------------------------------------------------
+
+export interface SectorPerf { symbol: string; label: string; pct: number }
+export interface CrossAssetCell { symbol: string; label: string; pct: number }
+export interface CrossAssetBucket { key: string; label: string; items: CrossAssetCell[] }
+export interface MacroBoard {
+  ts: number
+  rates: {
+    m3: number | null; y5: number | null; y10: number | null; y30: number | null
+    chgM3: number | null; chgY10: number | null; chgY30: number | null
+  }
+  vix: { level: number | null; pct: number | null; regime: string }
+  dxy: { level: number | null; pct: number | null }
+  sectors: SectorPerf[]
+  crossAsset: CrossAssetBucket[]
+}
+export interface EconSeries {
+  key: string; label: string; value: number | null; prior: number | null; unit: string; spark: number[]
+}
+export interface MacroEcon { available: boolean; series: EconSeries[] }
+export interface CurvePoint { label: string; months: number; yield: number }
+export interface MacroCurve {
+  available: boolean; points: CurvePoint[]; spread2s10s: number | null; inverted: boolean
+}
+export interface Release {
+  series: string; label: string; value: number | null; unit: string; period: string; updated: string
+}
+export interface MacroReleases { available: boolean; items: Release[] }

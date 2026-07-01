@@ -1,4 +1,6 @@
-import type { Asset, Candles, OrderBook, Quote } from './types'
+import type {
+  Asset, Candles, MacroBoard, MacroCurve, MacroEcon, MacroReleases, OrderBook, Quote,
+} from './types'
 
 export interface SearchResult {
   symbol: string
@@ -41,6 +43,23 @@ export async function fetchOrderBook(symbol: string): Promise<OrderBook> {
   const r = await fetch(`/api/orderbook/${symbol}`)
   if (!r.ok) throw new Error('orderbook fetch failed')
   return r.json()
+}
+
+export async function fetchMacroBoard(): Promise<MacroBoard | null> {
+  const r = await fetch('/api/macro/board')
+  return r.ok ? r.json() : null
+}
+export async function fetchMacroEcon(): Promise<MacroEcon | null> {
+  const r = await fetch('/api/macro/econ')
+  return r.ok ? r.json() : null
+}
+export async function fetchMacroCurve(): Promise<MacroCurve | null> {
+  const r = await fetch('/api/macro/curve')
+  return r.ok ? r.json() : null
+}
+export async function fetchMacroReleases(): Promise<MacroReleases | null> {
+  const r = await fetch('/api/macro/releases')
+  return r.ok ? r.json() : null
 }
 
 export interface PriceHandlers {
