@@ -102,3 +102,95 @@ def fred_meta(series_id: str) -> dict:
         return {}
     s = arr[0]
     return {"units": s.get("units_short") or s.get("units") or "", "updated": s.get("last_updated") or ""}
+
+
+# --- Board (Yahoo) ----------------------------------------------------------
+
+SECTORS = [
+    ("XLK", "Technology"), ("XLF", "Financials"), ("XLE", "Energy"),
+    ("XLV", "Health Care"), ("XLI", "Industrials"), ("XLY", "Cons. Disc."),
+    ("XLP", "Cons. Staples"), ("XLU", "Utilities"), ("XLB", "Materials"),
+    ("XLRE", "Real Estate"), ("XLC", "Comm. Svcs"),
+]
+CROSS_ASSET = [
+    ("equities", "Equities", [("^GSPC", "S&P 500"), ("^NDX", "Nasdaq 100"),
+        ("^DJI", "Dow 30"), ("^GDAXI", "DAX"), ("^FTSE", "FTSE 100")]),
+    ("rates", "Bonds", [("TLT", "20Y+ Treas"), ("IEF", "7-10Y Treas"),
+        ("LQD", "IG Credit"), ("HYG", "HY Credit")]),
+    ("commodities", "Commodities", [("GC=F", "Gold"), ("CL=F", "WTI Crude"),
+        ("SI=F", "Silver"), ("HG=F", "Copper"), ("NG=F", "Nat Gas")]),
+    ("fx", "FX", [("DX-Y.NYB", "US Dollar"), ("EURUSD=X", "EUR/USD"),
+        ("USDJPY=X", "USD/JPY"), ("GBPUSD=X", "GBP/USD")]),
+    ("crypto", "Crypto", [("BTC-USD", "Bitcoin"), ("ETH-USD", "Ethereum"),
+        ("SOL-USD", "Solana")]),
+]
+YIELDS_YH = {"m3": "^IRX", "y5": "^FVX", "y10": "^TNX", "y30": "^TYX"}
+VIX_YH = "^VIX"
+DXY_YH = "DX-Y.NYB"
+
+_board_cache: tuple[float, dict] | None = None
+_BOARD_TTL = 20.0
+
+
+def board_symbols() -> list[str]:
+    syms = set(YIELDS_YH.values()) | {VIX_YH, DXY_YH}
+    syms |= {s for s, _ in SECTORS}
+    for _, _, items in CROSS_ASSET:
+        syms |= {s for s, _ in items}
+    return sorted(syms)
+
+
+def _bp_change(q: dict | None) -> float | None:
+    if not q:
+        return None
+    return round((normalize_yield(q["price"]) - normalize_yield(q["prevClose"])) * 100, 1)
+
+
+def build_board(quotes: dict[str, dict]) -> dict:
+    def lvl(ysym):
+        q = quotes.get(ysym)
+        return normalize_yield(q["price"]) if q else None
+
+    vix_q = quotes.get(VIX_YH)
+    dxy_q = quotes.get(DXY_YH)
+    sectors = sorted(
+        [{"symbol": s, "label": lbl, "pct": round(quotes[s]["pct"], 2)}
+         for s, lbl in SECTORS if s in quotes],
+        key=lambda x: x["pct"], reverse=True)
+    cross = []
+    for key, label, items in CROSS_ASSET:
+        cells = [{"symbol": s, "label": lbl, "pct": round(quotes[s]["pct"], 2)}
+                 for s, lbl in items if s in quotes]
+        cross.append({"key": key, "label": label, "items": cells})
+    return {
+        "ts": int(time.time() * 1000),
+        "rates": {
+            "m3": lvl(YIELDS_YH["m3"]), "y5": lvl(YIELDS_YH["y5"]),
+            "y10": lvl(YIELDS_YH["y10"]), "y30": lvl(YIELDS_YH["y30"]),
+            "chgM3": _bp_change(quotes.get(YIELDS_YH["m3"])),
+            "chgY10": _bp_change(quotes.get(YIELDS_YH["y10"])),
+            "chgY30": _bp_change(quotes.get(YIELDS_YH["y30"])),
+        },
+        "vix": {"level": round(vix_q["price"], 2) if vix_q else None,
+                "pct": round(vix_q["pct"], 2) if vix_q else None,
+                "regime": risk_regime(vix_q["price"] if vix_q else None)},
+        "dxy": {"level": round(dxy_q["price"], 3) if dxy_q else None,
+                "pct": round(dxy_q["pct"], 2) if dxy_q else None},
+        "sectors": sectors,
+        "crossAsset": cross,
+    }
+
+
+def fetch_board() -> dict:
+    global _board_cache
+    now = time.time()
+    if _board_cache and now - _board_cache[0] < _BOARD_TTL:
+        return _board_cache[1]
+    quotes: dict[str, dict] = {}
+    for ysym in board_symbols():
+        q = providers.yahoo_quote_raw(ysym)
+        if q:
+            quotes[ysym] = q
+    board = build_board(quotes)
+    _board_cache = (now, board)
+    return board

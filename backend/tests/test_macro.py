@@ -59,3 +59,19 @@ def test_fred_unavailable_without_key(monkeypatch):
     assert macro.fred_available() is False
     assert macro.fred_observations("CPIAUCSL") == []
     assert macro.fred_meta("CPIAUCSL") == {}
+
+
+def test_build_board_shape():
+    quotes = {}
+    for ysym in macro.board_symbols():
+        # yields come back ×10 to prove norm_yield runs; others plain
+        quotes[ysym] = {"price": 42.0, "prevClose": 41.0, "pct": 1.5,
+                        "open": None, "high": None, "low": None}
+    b = macro.build_board(quotes)
+    assert set(b) >= {"ts", "rates", "vix", "dxy", "sectors", "crossAsset"}
+    assert b["rates"]["y10"] == 4.2            # 42.0 normalized
+    assert b["vix"]["regime"] in {"Calm", "Normal", "Elevated", "Risk-off"}
+    assert len(b["sectors"]) == 11
+    assert {c["key"] for c in b["crossAsset"]} == {
+        "equities", "rates", "commodities", "fx", "crypto"}
+    assert b["sectors"][0]["pct"] >= b["sectors"][-1]["pct"]  # sorted desc
