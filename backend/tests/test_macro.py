@@ -1,4 +1,5 @@
 import macro
+import providers
 
 
 def test_normalize_yield_passthrough_small():
@@ -37,3 +38,16 @@ def test_sort_releases_desc_by_updated():
              {"label": "b", "updated": "2024-03-01"},
              {"label": "c", "updated": "2024-02-01"}]
     assert [i["label"] for i in macro.sort_releases(items)] == ["b", "c", "a"]
+
+
+def test_quote_from_meta_computes_pct():
+    meta = {"regularMarketPrice": 110.0, "previousClose": 100.0,
+            "regularMarketOpen": 101.0, "regularMarketDayHigh": 111.0,
+            "regularMarketDayLow": 99.0}
+    q = providers.quote_from_meta(meta)
+    assert q["price"] == 110.0
+    assert q["prevClose"] == 100.0
+    assert round(q["pct"], 2) == 10.0
+
+def test_quote_from_meta_missing_returns_none():
+    assert providers.quote_from_meta({"regularMarketPrice": 0}) is None

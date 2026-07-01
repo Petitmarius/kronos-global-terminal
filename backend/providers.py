@@ -44,6 +44,7 @@ _BASE = "https://query1.finance.yahoo.com/v8/finance/chart/"
 
 _candle_cache: dict[tuple[str, str], tuple[float, dict]] = {}
 _quote_cache: dict[str, tuple[float, dict]] = {}
+_raw_quote_cache: dict[str, tuple[float, dict]] = {}
 _CANDLE_TTL = 25.0
 _QUOTE_TTL = 4.0
 
@@ -100,6 +101,35 @@ def yahoo_candles(symbol: str, tf: str) -> dict | None:
     out = {"symbol": symbol, "tf": tf, "points": points}
     _candle_cache[key] = (now, out)
     return out
+
+
+def quote_from_meta(meta: dict) -> dict | None:
+    price = meta.get("regularMarketPrice")
+    prev = meta.get("previousClose") or meta.get("chartPreviousClose")
+    if not price or not prev:
+        return None
+    pct = (float(price) / float(prev) - 1.0) * 100.0
+    return {
+        "price": float(price), "prevClose": float(prev), "pct": pct,
+        "open": meta.get("regularMarketOpen"),
+        "high": meta.get("regularMarketDayHigh"),
+        "low": meta.get("regularMarketDayLow"),
+    }
+
+
+def yahoo_quote_raw(ysym: str) -> dict | None:
+    """Quote for an arbitrary Yahoo symbol (no YAHOO_MAP entry needed)."""
+    now = time.time()
+    if ysym in _raw_quote_cache and now - _raw_quote_cache[ysym][0] < _QUOTE_TTL:
+        return _raw_quote_cache[ysym][1]
+    try:
+        meta = _chart(ysym, "1d", "1d")["chart"]["result"][0]["meta"]
+    except (KeyError, IndexError, TypeError):
+        return _raw_quote_cache.get(ysym, (0, None))[1]  # stale fallback
+    q = quote_from_meta(meta)
+    if q:
+        _raw_quote_cache[ysym] = (now, q)
+    return q
 
 
 def yahoo_quote(symbol: str) -> dict | None:
