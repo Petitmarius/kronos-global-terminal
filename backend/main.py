@@ -214,6 +214,11 @@ async def globe_geo():
     return await asyncio.to_thread(globe.build_geo)
 
 
+@app.get("/api/globe/macro-layer")
+async def globe_macro_layer():
+    return await asyncio.to_thread(globe.macro_layer)
+
+
 @app.get("/api/globe/country/{iso}")
 async def globe_country(iso: str):
     data = await asyncio.to_thread(globe.build_country, iso.upper())

@@ -31,6 +31,26 @@ def test_build_globe_markets_omits_missing():
     b = globe.build_globe_markets({})
     assert b["countries"] == []
 
+def test_build_globe_markets_has_region():
+    quotes = {c["index"]: {"price": 1.0, "prevClose": 1.0, "pct": 0.0,
+                           "open": None, "high": None, "low": None}
+              for c in globe.GLOBE_MARKETS}
+    b = globe.build_globe_markets(quotes)
+    us = next(c for c in b["countries"] if c["iso"] == "US")
+    assert us["region"] == "Americas"
+    assert {c["region"] for c in b["countries"]} == {"Americas", "EMEA", "Asia-Pacific"}
+
+def test_wb_all_rows_parse():
+    payload = [{"page": 1}, [
+        {"country": {"id": "US"}, "date": "2024", "value": 2.5},
+        {"country": {"id": "FR"}, "date": "2024", "value": None},
+        {"country": {"id": "1W"}, "date": "2024", "value": 3.0},
+    ]]
+    out = globe._wb_all_rows(payload)
+    assert out["US"] == {"value": 2.5, "year": "2024"}
+    assert "FR" not in out
+    assert out["1W"]["value"] == 3.0
+
 
 def test_news_hotspots_counts_and_samples():
     items = [

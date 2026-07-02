@@ -9,36 +9,63 @@ import macro
 import providers
 
 # iso2, ISO numeric (int, for topojson join), display name, Yahoo index,
-# Yahoo FX pair vs USD (or None), invFx=True when pair is USD-quoted (USDxxx).
+# Yahoo FX pair vs USD (or None), invFx=True when pair is USD-quoted (USDxxx), region.
 GLOBE_MARKETS = [
-    {"iso": "US", "num": 840, "name": "United States", "index": "^GSPC", "fx": None, "invFx": False},
-    {"iso": "CA", "num": 124, "name": "Canada", "index": "^GSPTSE", "fx": "USDCAD=X", "invFx": True},
-    {"iso": "BR", "num": 76, "name": "Brazil", "index": "^BVSP", "fx": "USDBRL=X", "invFx": True},
-    {"iso": "MX", "num": 484, "name": "Mexico", "index": "^MXX", "fx": "USDMXN=X", "invFx": True},
-    {"iso": "GB", "num": 826, "name": "United Kingdom", "index": "^FTSE", "fx": "GBPUSD=X", "invFx": False},
-    {"iso": "DE", "num": 276, "name": "Germany", "index": "^GDAXI", "fx": "EURUSD=X", "invFx": False},
-    {"iso": "FR", "num": 250, "name": "France", "index": "^FCHI", "fx": "EURUSD=X", "invFx": False},
-    {"iso": "ES", "num": 724, "name": "Spain", "index": "^IBEX", "fx": "EURUSD=X", "invFx": False},
-    {"iso": "IT", "num": 380, "name": "Italy", "index": "FTSEMIB.MI", "fx": "EURUSD=X", "invFx": False},
-    {"iso": "CH", "num": 756, "name": "Switzerland", "index": "^SSMI", "fx": "USDCHF=X", "invFx": True},
-    {"iso": "NL", "num": 528, "name": "Netherlands", "index": "^AEX", "fx": "EURUSD=X", "invFx": False},
-    {"iso": "JP", "num": 392, "name": "Japan", "index": "^N225", "fx": "USDJPY=X", "invFx": True},
-    {"iso": "CN", "num": 156, "name": "China", "index": "000001.SS", "fx": "USDCNY=X", "invFx": True},
-    {"iso": "HK", "num": 344, "name": "Hong Kong", "index": "^HSI", "fx": "USDHKD=X", "invFx": True},
-    {"iso": "IN", "num": 356, "name": "India", "index": "^BSESN", "fx": "USDINR=X", "invFx": True},
-    {"iso": "KR", "num": 410, "name": "South Korea", "index": "^KS11", "fx": "USDKRW=X", "invFx": True},
-    {"iso": "TW", "num": 158, "name": "Taiwan", "index": "^TWII", "fx": "USDTWD=X", "invFx": True},
-    {"iso": "AU", "num": 36, "name": "Australia", "index": "^AXJO", "fx": "AUDUSD=X", "invFx": False},
-    {"iso": "SG", "num": 702, "name": "Singapore", "index": "^STI", "fx": "USDSGD=X", "invFx": True},
-    {"iso": "ID", "num": 360, "name": "Indonesia", "index": "^JKSE", "fx": "USDIDR=X", "invFx": True},
-    {"iso": "TR", "num": 792, "name": "Turkey", "index": "XU100.IS", "fx": "USDTRY=X", "invFx": True},
-    {"iso": "ZA", "num": 710, "name": "South Africa", "index": "^J203.JO", "fx": "USDZAR=X", "invFx": True},
+    # Americas
+    {"iso": "US", "num": 840, "name": "United States", "index": "^GSPC", "fx": None, "invFx": False, "region": "Americas"},
+    {"iso": "CA", "num": 124, "name": "Canada", "index": "^GSPTSE", "fx": "USDCAD=X", "invFx": True, "region": "Americas"},
+    {"iso": "BR", "num": 76, "name": "Brazil", "index": "^BVSP", "fx": "USDBRL=X", "invFx": True, "region": "Americas"},
+    {"iso": "MX", "num": 484, "name": "Mexico", "index": "^MXX", "fx": "USDMXN=X", "invFx": True, "region": "Americas"},
+    {"iso": "AR", "num": 32, "name": "Argentina", "index": "^MERV", "fx": "USDARS=X", "invFx": True, "region": "Americas"},
+    {"iso": "CL", "num": 152, "name": "Chile", "index": "^IPSA", "fx": "USDCLP=X", "invFx": True, "region": "Americas"},
+    # EMEA
+    {"iso": "GB", "num": 826, "name": "United Kingdom", "index": "^FTSE", "fx": "GBPUSD=X", "invFx": False, "region": "EMEA"},
+    {"iso": "DE", "num": 276, "name": "Germany", "index": "^GDAXI", "fx": "EURUSD=X", "invFx": False, "region": "EMEA"},
+    {"iso": "FR", "num": 250, "name": "France", "index": "^FCHI", "fx": "EURUSD=X", "invFx": False, "region": "EMEA"},
+    {"iso": "ES", "num": 724, "name": "Spain", "index": "^IBEX", "fx": "EURUSD=X", "invFx": False, "region": "EMEA"},
+    {"iso": "IT", "num": 380, "name": "Italy", "index": "FTSEMIB.MI", "fx": "EURUSD=X", "invFx": False, "region": "EMEA"},
+    {"iso": "CH", "num": 756, "name": "Switzerland", "index": "^SSMI", "fx": "USDCHF=X", "invFx": True, "region": "EMEA"},
+    {"iso": "NL", "num": 528, "name": "Netherlands", "index": "^AEX", "fx": "EURUSD=X", "invFx": False, "region": "EMEA"},
+    {"iso": "SE", "num": 752, "name": "Sweden", "index": "^OMX", "fx": "USDSEK=X", "invFx": True, "region": "EMEA"},
+    {"iso": "NO", "num": 578, "name": "Norway", "index": "OSEBX.OL", "fx": "USDNOK=X", "invFx": True, "region": "EMEA"},
+    {"iso": "DK", "num": 208, "name": "Denmark", "index": "^OMXC25", "fx": "USDDKK=X", "invFx": True, "region": "EMEA"},
+    {"iso": "FI", "num": 246, "name": "Finland", "index": "^OMXH25", "fx": "EURUSD=X", "invFx": False, "region": "EMEA"},
+    {"iso": "AT", "num": 40, "name": "Austria", "index": "^ATX", "fx": "EURUSD=X", "invFx": False, "region": "EMEA"},
+    {"iso": "BE", "num": 56, "name": "Belgium", "index": "^BFX", "fx": "EURUSD=X", "invFx": False, "region": "EMEA"},
+    {"iso": "PT", "num": 620, "name": "Portugal", "index": "PSI20.LS", "fx": "EURUSD=X", "invFx": False, "region": "EMEA"},
+    {"iso": "GR", "num": 300, "name": "Greece", "index": "GD.AT", "fx": "EURUSD=X", "invFx": False, "region": "EMEA"},
+    {"iso": "IE", "num": 372, "name": "Ireland", "index": "^ISEQ", "fx": "EURUSD=X", "invFx": False, "region": "EMEA"},
+    {"iso": "PL", "num": 616, "name": "Poland", "index": "WIG20.WA", "fx": "USDPLN=X", "invFx": True, "region": "EMEA"},
+    {"iso": "TR", "num": 792, "name": "Turkey", "index": "XU100.IS", "fx": "USDTRY=X", "invFx": True, "region": "EMEA"},
+    {"iso": "ZA", "num": 710, "name": "South Africa", "index": "^J203.JO", "fx": "USDZAR=X", "invFx": True, "region": "EMEA"},
+    {"iso": "IL", "num": 376, "name": "Israel", "index": "^TA125.TA", "fx": "USDILS=X", "invFx": True, "region": "EMEA"},
+    {"iso": "SA", "num": 682, "name": "Saudi Arabia", "index": "^TASI.SR", "fx": "USDSAR=X", "invFx": True, "region": "EMEA"},
+    {"iso": "EG", "num": 818, "name": "Egypt", "index": "^CASE30", "fx": "USDEGP=X", "invFx": True, "region": "EMEA"},
+    {"iso": "RU", "num": 643, "name": "Russia", "index": "IMOEX.ME", "fx": "USDRUB=X", "invFx": True, "region": "EMEA"},
+    # Asia-Pacific
+    {"iso": "JP", "num": 392, "name": "Japan", "index": "^N225", "fx": "USDJPY=X", "invFx": True, "region": "Asia-Pacific"},
+    {"iso": "CN", "num": 156, "name": "China", "index": "000001.SS", "fx": "USDCNY=X", "invFx": True, "region": "Asia-Pacific"},
+    {"iso": "HK", "num": 344, "name": "Hong Kong", "index": "^HSI", "fx": "USDHKD=X", "invFx": True, "region": "Asia-Pacific"},
+    {"iso": "IN", "num": 356, "name": "India", "index": "^BSESN", "fx": "USDINR=X", "invFx": True, "region": "Asia-Pacific"},
+    {"iso": "KR", "num": 410, "name": "South Korea", "index": "^KS11", "fx": "USDKRW=X", "invFx": True, "region": "Asia-Pacific"},
+    {"iso": "TW", "num": 158, "name": "Taiwan", "index": "^TWII", "fx": "USDTWD=X", "invFx": True, "region": "Asia-Pacific"},
+    {"iso": "AU", "num": 36, "name": "Australia", "index": "^AXJO", "fx": "AUDUSD=X", "invFx": False, "region": "Asia-Pacific"},
+    {"iso": "NZ", "num": 554, "name": "New Zealand", "index": "^NZ50", "fx": "NZDUSD=X", "invFx": False, "region": "Asia-Pacific"},
+    {"iso": "SG", "num": 702, "name": "Singapore", "index": "^STI", "fx": "USDSGD=X", "invFx": True, "region": "Asia-Pacific"},
+    {"iso": "ID", "num": 360, "name": "Indonesia", "index": "^JKSE", "fx": "USDIDR=X", "invFx": True, "region": "Asia-Pacific"},
+    {"iso": "TH", "num": 764, "name": "Thailand", "index": "^SET.BK", "fx": "USDTHB=X", "invFx": True, "region": "Asia-Pacific"},
+    {"iso": "MY", "num": 458, "name": "Malaysia", "index": "^KLSE", "fx": "USDMYR=X", "invFx": True, "region": "Asia-Pacific"},
+    {"iso": "PH", "num": 608, "name": "Philippines", "index": "PSEI.PS", "fx": "USDPHP=X", "invFx": True, "region": "Asia-Pacific"},
 ]
 
 _WB_BASE = "https://api.worldbank.org/v2"
-_WB_INDICATORS = {"gdp": "NY.GDP.MKTP.KD.ZG", "inflation": "FP.CPI.TOTL.ZG", "unemployment": "SL.UEM.TOTL.ZS"}
-_wb_cache: dict[str, tuple[float, dict]] = {}
+# layer metrics (batched all-country fetch) vs the fuller set shown in the country panel
+_WB_LAYER = {"gdp": "NY.GDP.MKTP.KD.ZG", "inflation": "FP.CPI.TOTL.ZG", "unemployment": "SL.UEM.TOTL.ZS"}
+_WB_PANEL = {**_WB_LAYER, "population": "SP.POP.TOTL", "gdpUsd": "NY.GDP.MKTP.CD",
+             "debt": "GC.DOD.TOTL.GD.ZS", "currentAccount": "BN.CAB.XOKA.GD.ZS"}
 _WB_TTL = 24 * 3600.0
+_wb_metric_cache: dict[str, tuple[float, dict]] = {}   # indicator -> {iso: {value, year}}
+_wb_panel_cache: tuple[float, dict] | None = None      # {iso: {metrics..., year}}
 
 
 def _wb_latest(payload) -> tuple[float | None, str | None]:
@@ -52,26 +79,75 @@ def _wb_latest(payload) -> tuple[float | None, str | None]:
     return None, None
 
 
-def world_bank_macro(iso: str) -> dict:
-    now = time.time()
-    if iso in _wb_cache and now - _wb_cache[iso][0] < _WB_TTL:
-        return _wb_cache[iso][1]
-    out: dict = {"gdp": None, "inflation": None, "unemployment": None, "year": None}
-    got = False
-    for key, ind in _WB_INDICATORS.items():
-        url = f"{_WB_BASE}/country/{iso}/indicator/{ind}?format=json&per_page=8&mrv=8"
-        try:
-            payload = providers._get(url)
-        except Exception:  # noqa: BLE001
-            continue
-        val, year = _wb_latest(payload)
-        if val is not None:
-            out[key] = round(val, 2)
-            out["year"] = out["year"] or year
-            got = True
-    out = out if got else {"available": False}
-    _wb_cache[iso] = (now, out)
+def _wb_all_rows(payload) -> dict[str, dict]:
+    """World Bank country/all payload -> {iso2: {value, year}}. Rows come newest
+    first per country; keep the newest non-null (skip nulls, don't overwrite)."""
+    if not payload or not isinstance(payload, list) or len(payload) < 2 or not payload[1]:
+        return {}
+    out: dict[str, dict] = {}
+    for row in payload[1]:
+        v = row.get("value")
+        iso2 = (row.get("country") or {}).get("id")
+        if v is not None and iso2 and iso2 not in out:
+            out[iso2] = {"value": round(float(v), 2), "year": row.get("date")}
     return out
+
+
+def _wb_all(indicator: str) -> dict[str, dict]:
+    """Latest value of an indicator for every country — one request, cached 24h."""
+    now = time.time()
+    c = _wb_metric_cache.get(indicator)
+    if c and now - c[0] < _WB_TTL:
+        return c[1]
+    url = f"{_WB_BASE}/country/all/indicator/{indicator}?format=json&per_page=1200&mrv=3"
+    try:
+        rows = _wb_all_rows(providers._get(url))
+    except Exception:  # noqa: BLE001
+        return c[1] if c else {}  # transient failure: don't cache it
+    if rows:
+        _wb_metric_cache[indicator] = (now, rows)
+    return rows
+
+
+def _wb_panel_all() -> dict[str, dict]:
+    """{iso: {gdp, inflation, unemployment, population, gdpUsd, debt, currentAccount, year}}
+    for every mapped country, from batched per-indicator fetches."""
+    global _wb_panel_cache
+    now = time.time()
+    if _wb_panel_cache and now - _wb_panel_cache[0] < _WB_TTL:
+        return _wb_panel_cache[1]
+    per = {key: _wb_all(ind) for key, ind in _WB_PANEL.items()}
+    out: dict[str, dict] = {}
+    for c in GLOBE_MARKETS:
+        iso = c["iso"]
+        rec: dict = {}
+        got, year = False, None
+        for key in _WB_PANEL:
+            r = per[key].get(iso)
+            if r is not None:
+                rec[key] = round(r["value"]) if key in ("population", "gdpUsd") else r["value"]
+                if key == "gdp":
+                    year = r["year"]
+                got = True
+            else:
+                rec[key] = None
+        rec["year"] = year
+        out[iso] = rec if got else {"available": False}
+    if any(per.values()):  # only cache when at least one metric resolved
+        _wb_panel_cache = (now, out)
+    return out
+
+
+def world_bank_macro(iso: str) -> dict:
+    return _wb_panel_all().get(iso, {"available": False})
+
+
+def macro_layer() -> dict:
+    """Latest World Bank GDP/inflation/unemployment for every mapped country."""
+    isos = {c["iso"] for c in GLOBE_MARKETS}
+    per = {key: _wb_all(ind) for key, ind in _WB_LAYER.items()}
+    metrics = {key: {iso: rows[iso] for iso in isos if iso in rows} for key, rows in per.items()}
+    return {"metrics": metrics}
 
 
 _markets_cache: tuple[float, dict] | None = None
@@ -86,7 +162,7 @@ def build_globe_markets(quotes: dict[str, dict]) -> dict:
             continue
         countries.append({"iso": c["iso"], "num": c["num"], "name": c["name"],
                           "index": c["index"], "level": round(q["price"], 2),
-                          "pct": round(q["pct"], 2)})
+                          "pct": round(q["pct"], 2), "region": c["region"]})
     return {"updated": int(time.time() * 1000), "countries": countries}
 
 
