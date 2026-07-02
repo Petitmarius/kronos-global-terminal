@@ -34,9 +34,15 @@ export default function CountryPanel({ iso, onClose }: { iso: string; onClose: (
     return () => { chart?.remove() }
   }, [d])
 
-  const macroRow = (label: string, v: number | null, unit = '%') => (
+  const macroRow = (label: string, v: number | null | undefined, unit = '%') => (
     <div className={styles.cpMacroRow}><span>{label}</span><b>{v != null ? `${v}${unit}` : '—'}</b></div>
   )
+  const rowStr = (label: string, s: string | null) => (
+    <div className={styles.cpMacroRow}><span>{label}</span><b>{s ?? '—'}</b></div>
+  )
+  const fmtPop = (v: number | null | undefined) => (v != null ? `${(v / 1e6).toFixed(1)} M` : null)
+  const fmtGdp = (v: number | null | undefined) =>
+    v != null ? (v >= 1e12 ? `$${(v / 1e12).toFixed(2)} T` : `$${(v / 1e9).toFixed(0)} B`) : null
 
   return (
     <div className={styles.cp}>
@@ -59,7 +65,15 @@ export default function CountryPanel({ iso, onClose }: { iso: string; onClose: (
           <div className={styles.cpSection}>MACRO {d.macro.year ? `· World Bank ${d.macro.year}` : ''}</div>
           {d.macro.available === false
             ? <div className={styles.empty}>No World Bank data.</div>
-            : (<>{macroRow('GDP growth', d.macro.gdp)}{macroRow('Inflation', d.macro.inflation)}{macroRow('Unemployment', d.macro.unemployment)}</>)}
+            : (<>
+                {macroRow('GDP growth', d.macro.gdp)}
+                {macroRow('Inflation', d.macro.inflation)}
+                {macroRow('Unemployment', d.macro.unemployment)}
+                {rowStr('Population', fmtPop(d.macro.population))}
+                {rowStr('GDP (nominal)', fmtGdp(d.macro.gdpUsd))}
+                {macroRow('Govt debt', d.macro.debt, ' % GDP')}
+                {macroRow('Curr. account', d.macro.currentAccount, ' % GDP')}
+              </>)}
 
           <div className={styles.cpSection}>NEWS</div>
           {d.news.length === 0 ? <div className={styles.empty}>No tagged news.</div> : d.news.map((n, i) => (

@@ -1,12 +1,26 @@
+import { METRIC_META, type MapMetric } from '../../geo/scales'
 import styles from './GlobalMap.module.css'
 
-export default function MapLegend({ showGeo, onToggleGeo }: { showGeo: boolean; onToggleGeo: (v: boolean) => void }) {
+const METRICS: MapMetric[] = ['eq', 'gdp', 'inflation', 'unemployment']
+
+export default function MapLegend(
+  { metric, onMetric, showGeo, onToggleGeo }:
+  { metric: MapMetric; onMetric: (m: MapMetric) => void; showGeo: boolean; onToggleGeo: (v: boolean) => void },
+) {
+  const meta = METRIC_META[metric]
   return (
     <div className={styles.legend}>
+      <div className={styles.metricSel}>
+        {METRICS.map((m) => (
+          <button key={m} className={`${styles.metricBtn} ${metric === m ? styles.metricOn : ''}`} onClick={() => onMetric(m)}>
+            {METRIC_META[m].short}
+          </button>
+        ))}
+      </div>
       <div className={styles.legendScale}>
-        <span className={styles.neg}>−3%</span>
-        <span className={styles.legendBar} />
-        <span className={styles.pos}>+3%</span>
+        <span>{meta.lo}</span>
+        <span className={styles.legendBar} style={{ background: meta.gradient }} />
+        <span>{meta.hi}</span>
       </div>
       <button className={`${styles.legendToggle} ${showGeo ? styles.legendToggleOn : ''}`} onClick={() => onToggleGeo(!showGeo)}>
         ◉ Geopolitical

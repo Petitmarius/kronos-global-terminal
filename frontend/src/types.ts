@@ -168,13 +168,19 @@ export interface RrgSector { symbol: string; label: string; trail: RrgPoint[]; q
 export interface MacroRrg { available: boolean; sectors: RrgSector[] }
 
 // --- Global Macro Map -------------------------------------------------------
-export interface GlobeCountry { iso: string; num: number; name: string; index: string; level: number; pct: number }
+export interface GlobeCountry { iso: string; num: number; name: string; index: string; level: number; pct: number; region: string }
 export interface GlobeMarkets { updated: number; countries: GlobeCountry[] }
+export type MacroMetric = 'gdp' | 'inflation' | 'unemployment'
+export interface MacroLayer { metrics: Record<MacroMetric, Record<string, { value: number; year: string }>> }
 export interface GeoNews { headline: string; url: string; source: string; datetime: number }
 export interface GeoPoint { iso: string; name: string; lat: number; lon: number; count: number; headline: string; news: GeoNews[] }
 export interface GlobeGeo { available: boolean; points: GeoPoint[] }
 export interface CountryNews { headline: string; url: string; source: string; datetime: number }
-export interface CountryMacro { gdp: number | null; inflation: number | null; unemployment: number | null; year: string | null; available?: boolean }
+export interface CountryMacro {
+  gdp: number | null; inflation: number | null; unemployment: number | null
+  population?: number | null; gdpUsd?: number | null; debt?: number | null; currentAccount?: number | null
+  year: string | null; available?: boolean
+}
 export interface CountryDetail {
   iso: string; name: string
   index: { symbol: string; level: number | null; pct: number | null; points: { time: number; value: number }[] }

@@ -3,23 +3,29 @@ import { ComposableMap, Geographies, Geography, Marker, ZoomableGroup } from 're
 import topo from 'world-atlas/countries-110m.json'
 
 import { NUM_TO_ISO } from '../../geo/countries'
-import type { GeoPoint, GlobeGeo, GlobeMarkets } from '../../types'
+import { METRIC_META, metricFill, type MapMetric } from '../../geo/scales'
+import type { GeoPoint, GlobeGeo, GlobeMarkets, MacroLayer } from '../../types'
 import styles from './GlobalMap.module.css'
 
 const GEO_URL = topo as unknown as Record<string, unknown>
 
-function fill(pct: number | undefined): string {
-  if (pct == null) return '#141b23'
-  const a = Math.min(Math.abs(pct) / 3, 1) * 0.7 + 0.12
-  return pct >= 0 ? `rgba(0,230,118,${a.toFixed(2)})` : `rgba(255,23,68,${a.toFixed(2)})`
-}
-
 export default function WorldMap(
-  { markets, geo, showGeo, onSelect, onGeoHover }:
-  { markets: GlobeMarkets | null; geo: GlobeGeo | null; showGeo: boolean; onSelect: (iso: string) => void; onGeoHover: (p: GeoPoint) => void },
+  { markets, geo, showGeo, metric, layer, onSelect, onGeoHover }:
+  { markets: GlobeMarkets | null; geo: GlobeGeo | null; showGeo: boolean; metric: MapMetric; layer: MacroLayer | null; onSelect: (iso: string) => void; onGeoHover: (p: GeoPoint) => void },
 ) {
   const [tip, setTip] = useState<{ x: number; y: number; text: string } | null>(null)
   const byIso = new Map((markets?.countries ?? []).map((c) => [c.iso, c]))
+  const layerVals = metric !== 'eq' && layer ? layer.metrics[metric] : undefined
+
+  const valueFor = (iso: string | undefined, c: GlobeMarkets['countries'][number] | undefined): number | undefined => {
+    if (!iso) return undefined
+    if (metric === 'eq') return c?.pct
+    return layerVals?.[iso]?.value
+  }
+  const tipFor = (c: GlobeMarkets['countries'][number], v: number | undefined) =>
+    metric === 'eq'
+      ? `${c.name} · ${c.index} ${c.pct >= 0 ? '+' : ''}${c.pct}%`
+      : `${c.name} · ${METRIC_META[metric].label} ${v != null ? `${v}${METRIC_META[metric].unit}` : '—'}`
 
   return (
     <>
@@ -30,11 +36,12 @@ export default function WorldMap(
               geographies.map((g) => {
                 const iso = NUM_TO_ISO[Number(g.id)]
                 const c = iso ? byIso.get(iso) : undefined
+                const v = valueFor(iso, c)
                 return (
                   <Geography
                     key={g.rsmKey}
                     geography={g}
-                    fill={fill(c?.pct)}
+                    fill={metricFill(metric, v)}
                     stroke="#0a0e13"
                     strokeWidth={0.4}
                     style={{
@@ -42,7 +49,7 @@ export default function WorldMap(
                       hover: { outline: 'none', fill: c ? '#8fa3b3' : '#1b2530', cursor: c ? 'pointer' : 'default' },
                       pressed: { outline: 'none' },
                     }}
-                    onMouseEnter={(e: React.MouseEvent) => c && setTip({ x: e.clientX, y: e.clientY, text: `${c.name} · ${c.index} ${c.pct >= 0 ? '+' : ''}${c.pct}%` })}
+                    onMouseEnter={(e: React.MouseEvent) => c && setTip({ x: e.clientX, y: e.clientY, text: tipFor(c, v) })}
                     onMouseMove={(e: React.MouseEvent) => c && setTip((t) => (t ? { ...t, x: e.clientX, y: e.clientY } : t))}
                     onMouseLeave={() => setTip(null)}
                     onClick={() => c && onSelect(c.iso)}
