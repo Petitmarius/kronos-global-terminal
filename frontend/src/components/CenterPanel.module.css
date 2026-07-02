@@ -12,6 +12,8 @@
 .bigprice { text-align: right; }
 .p { font-size: 32px; font-weight: 800; letter-spacing: 1px; line-height: 1; font-variant-numeric: tabular-nums; }
 .c { font-size: 13px; font-weight: 700; margin-top: 4px; font-variant-numeric: tabular-nums; }
+.mcap { font-size: 10px; font-weight: 700; letter-spacing: .5px; color: var(--dim); margin-top: 3px; }
+.mcap b { color: #cfd8e3; font-weight: 800; }
 
 /* all 8 stats on a single row to save vertical space */
 .grid { display: grid; grid-template-columns: repeat(8, 1fr); gap: 1px; background: var(--border); border: 1px solid var(--border); border-radius: 6px; overflow: hidden; margin-top: 8px; }
