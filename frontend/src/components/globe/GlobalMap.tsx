@@ -69,8 +69,11 @@ export default function GlobalMap() {
         <WorldMap markets={markets} geo={geo} showGeo={showGeo} metric={metric} layer={layer}
           portfolio={portfolio} exposure={portfolio ? exposure : null}
           onSelect={selectCountry} onGeoHover={hoverGeo} onExposureClick={exposureClick} />
-        <MapLegend metric={metric} onMetric={setMetric} showGeo={showGeo} onToggleGeo={toggleGeo}
-          portfolio={portfolio} onTogglePortfolio={togglePortfolio} />
+        <div className={styles.mapControls}>
+          <button className={`${styles.ctrlBtn} ${portfolio ? styles.ctrlOn : ''}`} onClick={() => togglePortfolio(!portfolio)}>◧ Portfolio</button>
+          <button className={`${styles.ctrlBtn} ${showGeo ? styles.ctrlGeoOn : ''}`} onClick={() => toggleGeo(!showGeo)}>◉ Geopolitical</button>
+        </div>
+        {!portfolio && <MapLegend metric={metric} onMetric={setMetric} />}
         {portfolio && <PortfolioPanel exposure={exposure} onPick={pick} onClose={() => togglePortfolio(false)} />}
         {!portfolio && selected && <CountryPanel iso={selected} onClose={() => setSelected(null)} />}
         {showGeo && geoSel && <GeoPanel point={geoSel} onClose={() => setGeoSel(null)} />}
