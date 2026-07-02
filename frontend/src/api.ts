@@ -1,6 +1,6 @@
 import type {
-  Asset, Candles, MacroBoard, MacroCalendar, MacroCorrelations, MacroCurve, MacroEcon, MacroNews,
-  MacroReleases, MacroRrg, OrderBook, Quote,
+  Asset, Candles, CountryDetail, GlobeGeo, GlobeMarkets, MacroBoard, MacroCalendar,
+  MacroCorrelations, MacroCurve, MacroEcon, MacroNews, MacroReleases, MacroRrg, OrderBook, Quote,
 } from './types'
 
 export interface SearchResult {
@@ -80,6 +80,18 @@ export async function fetchMacroCorrelations(): Promise<MacroCorrelations | null
 }
 export async function fetchMacroRrg(): Promise<MacroRrg | null> {
   const r = await fetch('/api/macro/rrg')
+  return r.ok ? r.json() : null
+}
+export async function fetchGlobeMarkets(): Promise<GlobeMarkets | null> {
+  const r = await fetch('/api/globe/markets')
+  return r.ok ? r.json() : null
+}
+export async function fetchGlobeGeo(): Promise<GlobeGeo | null> {
+  const r = await fetch('/api/globe/geo')
+  return r.ok ? r.json() : null
+}
+export async function fetchGlobeCountry(iso: string): Promise<CountryDetail | null> {
+  const r = await fetch(`/api/globe/country/${encodeURIComponent(iso)}`)
   return r.ok ? r.json() : null
 }
 

@@ -166,6 +166,21 @@ export interface MacroCorrelations { available: boolean; labels: string[]; matri
 export interface RrgPoint { x: number; y: number }
 export interface RrgSector { symbol: string; label: string; trail: RrgPoint[]; quadrant: string }
 export interface MacroRrg { available: boolean; sectors: RrgSector[] }
+
+// --- Global Macro Map -------------------------------------------------------
+export interface GlobeCountry { iso: string; num: number; name: string; index: string; level: number; pct: number }
+export interface GlobeMarkets { updated: number; countries: GlobeCountry[] }
+export interface GeoPoint { iso: string; name: string; lat: number; lon: number; count: number; headline: string }
+export interface GlobeGeo { available: boolean; points: GeoPoint[] }
+export interface CountryNews { headline: string; url: string; source: string; datetime: number }
+export interface CountryMacro { gdp: number | null; inflation: number | null; unemployment: number | null; year: string | null; available?: boolean }
+export interface CountryDetail {
+  iso: string; name: string
+  index: { symbol: string; level: number | null; pct: number | null; points: { time: number; value: number }[] }
+  fx: { pair: string; level: number; pct: number } | null
+  macro: CountryMacro
+  news: CountryNews[]
+}
 export interface EconSeries {
   key: string; label: string; value: number | null; prior: number | null; unit: string; spark: number[]
 }
