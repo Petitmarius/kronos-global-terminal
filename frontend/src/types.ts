@@ -170,7 +170,8 @@ export interface MacroRrg { available: boolean; sectors: RrgSector[] }
 // --- Global Macro Map -------------------------------------------------------
 export interface GlobeCountry { iso: string; num: number; name: string; index: string; level: number; pct: number }
 export interface GlobeMarkets { updated: number; countries: GlobeCountry[] }
-export interface GeoPoint { iso: string; name: string; lat: number; lon: number; count: number; headline: string }
+export interface GeoNews { headline: string; url: string; source: string; datetime: number }
+export interface GeoPoint { iso: string; name: string; lat: number; lon: number; count: number; headline: string; news: GeoNews[] }
 export interface GlobeGeo { available: boolean; points: GeoPoint[] }
 export interface CountryNews { headline: string; url: string; source: string; datetime: number }
 export interface CountryMacro { gdp: number | null; inflation: number | null; unemployment: number | null; year: string | null; available?: boolean }

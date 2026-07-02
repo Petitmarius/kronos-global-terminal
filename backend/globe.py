@@ -142,15 +142,16 @@ def news_hotspots(items: list[dict]) -> list[dict]:
                 cur = acc.get(c["iso"])
                 if not cur:
                     cur = {"iso": c["iso"], "name": c["name"], "lat": c["lat"],
-                           "lon": c["lon"], "count": 0, "headline": head, "_ts": it.get("datetime", 0)}
+                           "lon": c["lon"], "count": 0, "news": []}
                     acc[c["iso"]] = cur
                 cur["count"] += 1
-                if it.get("datetime", 0) >= cur["_ts"]:  # keep newest sample headline
-                    cur["_ts"] = it.get("datetime", 0)
-                    cur["headline"] = head
+                cur["news"].append({"headline": head, "url": it.get("url") or "",
+                                    "source": it.get("source") or "", "datetime": it.get("datetime", 0)})
     pts = sorted(acc.values(), key=lambda p: p["count"], reverse=True)
     for p in pts:
-        p.pop("_ts", None)
+        p["news"].sort(key=lambda n: n["datetime"], reverse=True)
+        p["news"] = p["news"][:6]
+        p["headline"] = p["news"][0]["headline"] if p["news"] else ""  # marker tooltip sample
     return pts
 
 

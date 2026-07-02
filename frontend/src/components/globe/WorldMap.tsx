@@ -3,7 +3,7 @@ import { ComposableMap, Geographies, Geography, Marker, ZoomableGroup } from 're
 import topo from 'world-atlas/countries-110m.json'
 
 import { NUM_TO_ISO } from '../../geo/countries'
-import type { GlobeGeo, GlobeMarkets } from '../../types'
+import type { GeoPoint, GlobeGeo, GlobeMarkets } from '../../types'
 import styles from './GlobalMap.module.css'
 
 const GEO_URL = topo as unknown as Record<string, unknown>
@@ -15,8 +15,8 @@ function fill(pct: number | undefined): string {
 }
 
 export default function WorldMap(
-  { markets, geo, showGeo, onSelect }:
-  { markets: GlobeMarkets | null; geo: GlobeGeo | null; showGeo: boolean; onSelect: (iso: string) => void },
+  { markets, geo, showGeo, onSelect, onGeoHover }:
+  { markets: GlobeMarkets | null; geo: GlobeGeo | null; showGeo: boolean; onSelect: (iso: string) => void; onGeoHover: (p: GeoPoint) => void },
 ) {
   const [tip, setTip] = useState<{ x: number; y: number; text: string } | null>(null)
   const byIso = new Map((markets?.countries ?? []).map((c) => [c.iso, c]))
@@ -53,10 +53,10 @@ export default function WorldMap(
           </Geographies>
           {showGeo && (geo?.points ?? []).map((p) => (
             <Marker key={p.iso} coordinates={[p.lon, p.lat]}
-              onMouseEnter={(e: React.MouseEvent) => setTip({ x: e.clientX, y: e.clientY, text: `${p.name} · ${p.count} news · ${p.headline.slice(0, 60)}` })}
-              onMouseMove={(e: React.MouseEvent) => setTip((t) => (t ? { ...t, x: e.clientX, y: e.clientY } : t))}
-              onMouseLeave={() => setTip(null)}>
+              style={{ default: { cursor: 'pointer' }, hover: { cursor: 'pointer' }, pressed: {} }}
+              onMouseEnter={() => onGeoHover(p)}>
               <circle r={Math.min(4 + Math.sqrt(p.count) * 4, 22)} fill="rgba(255,145,0,0.28)" stroke="#FF9100" strokeWidth={1} />
+              <circle r={3} fill="#FF9100" />
             </Marker>
           ))}
         </ZoomableGroup>

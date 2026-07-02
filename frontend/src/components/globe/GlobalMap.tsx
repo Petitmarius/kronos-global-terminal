@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react'
 
 import { fetchGlobeGeo, fetchGlobeMarkets } from '../../api'
-import type { GlobeGeo, GlobeMarkets } from '../../types'
+import type { GeoPoint, GlobeGeo, GlobeMarkets } from '../../types'
 import CountryPanel from './CountryPanel'
+import GeoPanel from './GeoPanel'
 import MapLegend from './MapLegend'
 import SessionClock from './SessionClock'
 import WorldMap from './WorldMap'
@@ -12,7 +13,12 @@ export default function GlobalMap() {
   const [markets, setMarkets] = useState<GlobeMarkets | null>(null)
   const [geo, setGeo] = useState<GlobeGeo | null>(null)
   const [selected, setSelected] = useState<string | null>(null)
+  const [geoSel, setGeoSel] = useState<GeoPoint | null>(null)
   const [showGeo, setShowGeo] = useState(false)
+
+  const selectCountry = (iso: string) => { setGeoSel(null); setSelected(iso) }
+  const hoverGeo = (p: GeoPoint) => { setSelected(null); setGeoSel(p) }
+  const toggleGeo = (v: boolean) => { if (!v) setGeoSel(null); setShowGeo(v) }
 
   useEffect(() => {
     let alive = true
@@ -27,9 +33,10 @@ export default function GlobalMap() {
   return (
     <div className={styles.wrap}>
       <div className={styles.mapArea}>
-        <WorldMap markets={markets} geo={geo} showGeo={showGeo} onSelect={setSelected} />
-        <MapLegend showGeo={showGeo} onToggleGeo={setShowGeo} />
+        <WorldMap markets={markets} geo={geo} showGeo={showGeo} onSelect={selectCountry} onGeoHover={hoverGeo} />
+        <MapLegend showGeo={showGeo} onToggleGeo={toggleGeo} />
         {selected && <CountryPanel iso={selected} onClose={() => setSelected(null)} />}
+        {showGeo && geoSel && <GeoPanel point={geoSel} onClose={() => setGeoSel(null)} />}
       </div>
       <SessionClock />
       <footer className={styles.disclaimer}>

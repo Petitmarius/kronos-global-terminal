@@ -44,6 +44,7 @@ def test_news_hotspots_counts_and_samples():
     assert by["CN"]["count"] == 2
     assert by["US"]["count"] == 1
     assert by["CN"]["headline"] == "China tightens chip export rules"  # newest sample
+    assert len(by["CN"]["news"]) == 2 and by["CN"]["news"][0]["datetime"] == 3
     assert "UA" in by and all(k in by["CN"] for k in ("lat", "lon", "name"))
 
 def test_news_hotspots_word_boundary():
