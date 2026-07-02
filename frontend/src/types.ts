@@ -206,3 +206,25 @@ export interface NewsItem {
 export interface MacroNews { available: boolean; source: string; items: NewsItem[] }
 export interface CalendarItem { date: string; event: string }
 export interface MacroCalendar { available: boolean; source: string | null; items: CalendarItem[] }
+
+// --- Portfolio exposure (Global Map) ----------------------------------------
+export interface CountryExposure {
+  iso: string
+  notional: number
+  latent: number
+  realized: number
+  count: number
+  topSymbol: string   // largest-notional open position in this country (click-through)
+}
+export interface NonGeoBucket { notional: number; latent: number; realized: number; count: number }
+export interface NonGeo extends NonGeoBucket {
+  byCat: Record<string, NonGeoBucket>   // 'FX' | 'CRYPTO' | 'CMD' | 'INDEX' | 'EQ' | 'OTHER'
+  topSymbol: string
+}
+export interface ExposureModel {
+  perCountry: Record<string, CountryExposure>
+  nonGeo: NonGeo
+  totals: { notional: number; latent: number; realized: number; positions: number }
+  maxNotional: number    // max perCountry.notional, guarded >= 1
+  maxAbsLatent: number   // max |perCountry.latent|, guarded >= 1
+}
