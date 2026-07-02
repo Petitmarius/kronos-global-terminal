@@ -103,3 +103,64 @@ def fetch_globe_markets() -> dict:
     board = build_globe_markets(quotes)
     _markets_cache = (now, board)
     return board
+
+
+# name -> centroid + match aliases (word-boundary, case-insensitive)
+NEWS_COUNTRIES = [
+    {"iso": "US", "name": "United States", "lat": 39.0, "lon": -98.0, "aliases": ["US", "USA", "U.S.", "United States", "America", "American", "Fed", "Washington"]},
+    {"iso": "CN", "name": "China", "lat": 35.0, "lon": 103.0, "aliases": ["China", "Chinese", "Beijing", "PBOC"]},
+    {"iso": "JP", "name": "Japan", "lat": 36.0, "lon": 138.0, "aliases": ["Japan", "Japanese", "Tokyo", "BOJ"]},
+    {"iso": "GB", "name": "United Kingdom", "lat": 54.0, "lon": -2.0, "aliases": ["UK", "Britain", "British", "England", "London", "BoE"]},
+    {"iso": "DE", "name": "Germany", "lat": 51.0, "lon": 10.0, "aliases": ["Germany", "German", "Berlin"]},
+    {"iso": "FR", "name": "France", "lat": 46.0, "lon": 2.0, "aliases": ["France", "French", "Paris"]},
+    {"iso": "RU", "name": "Russia", "lat": 61.0, "lon": 90.0, "aliases": ["Russia", "Russian", "Moscow", "Kremlin", "Putin"]},
+    {"iso": "UA", "name": "Ukraine", "lat": 49.0, "lon": 32.0, "aliases": ["Ukraine", "Ukrainian", "Kyiv", "Kiev"]},
+    {"iso": "IN", "name": "India", "lat": 22.0, "lon": 79.0, "aliases": ["India", "Indian", "Mumbai", "RBI"]},
+    {"iso": "BR", "name": "Brazil", "lat": -10.0, "lon": -55.0, "aliases": ["Brazil", "Brazilian", "Brasilia"]},
+    {"iso": "IL", "name": "Israel", "lat": 31.0, "lon": 35.0, "aliases": ["Israel", "Israeli", "Tel Aviv", "Gaza"]},
+    {"iso": "IR", "name": "Iran", "lat": 32.0, "lon": 53.0, "aliases": ["Iran", "Iranian", "Tehran"]},
+    {"iso": "SA", "name": "Saudi Arabia", "lat": 24.0, "lon": 45.0, "aliases": ["Saudi", "Saudi Arabia", "Riyadh", "OPEC"]},
+    {"iso": "KR", "name": "South Korea", "lat": 36.5, "lon": 128.0, "aliases": ["South Korea", "Korean", "Seoul"]},
+    {"iso": "KP", "name": "North Korea", "lat": 40.0, "lon": 127.0, "aliases": ["North Korea", "Pyongyang"]},
+    {"iso": "TW", "name": "Taiwan", "lat": 23.7, "lon": 121.0, "aliases": ["Taiwan", "Taiwanese", "Taipei", "TSMC"]},
+    {"iso": "TR", "name": "Turkey", "lat": 39.0, "lon": 35.0, "aliases": ["Turkey", "Turkish", "Ankara", "Erdogan"]},
+    {"iso": "CA", "name": "Canada", "lat": 56.0, "lon": -106.0, "aliases": ["Canada", "Canadian", "Ottawa"]},
+    {"iso": "MX", "name": "Mexico", "lat": 23.0, "lon": -102.0, "aliases": ["Mexico", "Mexican"]},
+    {"iso": "AU", "name": "Australia", "lat": -25.0, "lon": 133.0, "aliases": ["Australia", "Australian", "Sydney", "RBA"]},
+]
+_geo_cache: tuple[float, dict] | None = None
+_GEO_TTL = 300.0
+
+
+def news_hotspots(items: list[dict]) -> list[dict]:
+    acc: dict[str, dict] = {}
+    for it in items:
+        head = it.get("headline") or ""
+        low = head.lower()
+        for c in NEWS_COUNTRIES:
+            if any(re.search(rf"\b{re.escape(a.lower())}\b", low) for a in c["aliases"]):
+                cur = acc.get(c["iso"])
+                if not cur:
+                    cur = {"iso": c["iso"], "name": c["name"], "lat": c["lat"],
+                           "lon": c["lon"], "count": 0, "headline": head, "_ts": it.get("datetime", 0)}
+                    acc[c["iso"]] = cur
+                cur["count"] += 1
+                if it.get("datetime", 0) >= cur["_ts"]:  # keep newest sample headline
+                    cur["_ts"] = it.get("datetime", 0)
+                    cur["headline"] = head
+    pts = sorted(acc.values(), key=lambda p: p["count"], reverse=True)
+    for p in pts:
+        p.pop("_ts", None)
+    return pts
+
+
+def build_geo() -> dict:
+    global _geo_cache
+    now = time.time()
+    if _geo_cache and now - _geo_cache[0] < _GEO_TTL:
+        return _geo_cache[1]
+    news = macro.fetch_news()
+    pts = news_hotspots(news.get("items", []))
+    out = {"available": bool(pts), "points": pts}
+    _geo_cache = (now, out)
+    return out
