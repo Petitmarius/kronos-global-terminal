@@ -1,5 +1,6 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 
+import { fetchMarketCap } from '../api'
 import { STUDIES, TIMEFRAMES } from '../constants'
 import { arrow, fmt, fmtCompact, fmtPct, fmtUsd, formatStamp, formatTime, signClass } from '../format'
 import { positionPnl, useStore } from '../store'
@@ -7,6 +8,9 @@ import PriceChart from './PriceChart'
 import styles from './CenterPanel.module.css'
 
 const TABS = ['POSITIONS', 'PENDING', 'ORDER HISTORY', 'TRADE LOG', 'ALERTS'] as const
+
+const fmtMcap = (v: number) =>
+  v >= 1e12 ? `$${(v / 1e12).toFixed(2)}T` : v >= 1e9 ? `$${(v / 1e9).toFixed(1)}B` : `$${(v / 1e6).toFixed(0)}M`
 
 export default function CenterPanel() {
   const asset = useStore((s) => s.assets[s.selected])
@@ -30,6 +34,14 @@ export default function CenterPanel() {
 
   const [tab, setTab] = useState<(typeof TABS)[number]>('POSITIONS')
   const [alertPrice, setAlertPrice] = useState('')
+  const [mktCap, setMktCap] = useState<number | null>(null)
+
+  useEffect(() => {
+    setMktCap(null)
+    let alive = true
+    void fetchMarketCap(selected).then((r) => { if (alive) setMktCap(r?.marketCap ?? null) })
+    return () => { alive = false }
+  }, [selected])
 
   if (!asset) {
     return (
@@ -78,6 +90,7 @@ export default function CenterPanel() {
             <div className={`${styles.c} ${signClass(asset.pct)}`}>
               {arrow(asset.pct)} {fmt(Math.abs(asset.change), dig)} ({fmtPct(asset.pct)})
             </div>
+            {mktCap != null && <div className={styles.mcap}>MKT CAP <b>{fmtMcap(mktCap)}</b></div>}
           </div>
         </div>
 

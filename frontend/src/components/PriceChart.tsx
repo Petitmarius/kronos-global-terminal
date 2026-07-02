@@ -35,7 +35,7 @@ const baseLayout = {
   },
   grid: { vertLines: { visible: false }, horzLines: { visible: false } },
   crosshair: {
-    mode: CrosshairMode.Normal,
+    mode: CrosshairMode.Magnet,
     vertLine: { color: '#2c3a49', width: 1 as const, style: LineStyle.Dotted, labelBackgroundColor: '#1b2530' },
     horzLine: { color: '#2c3a49', width: 1 as const, style: LineStyle.Dotted, labelBackgroundColor: '#1b2530' },
   },

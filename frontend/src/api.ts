@@ -41,6 +41,11 @@ export async function fetchCandles(symbol: string, tf: string): Promise<Candles>
   return r.json()
 }
 
+export async function fetchMarketCap(symbol: string): Promise<{ marketCap: number | null; currency: string | null } | null> {
+  const r = await fetch(`/api/marketcap/${encodeURIComponent(symbol)}`)
+  return r.ok ? r.json() : null
+}
+
 export async function fetchOrderBook(symbol: string): Promise<OrderBook> {
   const r = await fetch(`/api/orderbook/${symbol}`)
   if (!r.ok) throw new Error('orderbook fetch failed')

@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState, type MouseEvent } from 'react'
 
 import { fetchMacroCandles } from '../../../api'
 import type { MacroBoard } from '../../../types'
@@ -12,14 +12,34 @@ const REGIME_COLOR: Record<string, string> = {
 const gaugePos = (v: number) => Math.max(0, Math.min(1, (v - 10) / 30)) * 100
 
 function Sparkline({ data, color }: { data: number[]; color: string }) {
+  const ref = useRef<HTMLDivElement>(null)
+  const [hover, setHover] = useState<number | null>(null)
   if (data.length < 2) return null
   const w = 100, h = 24
   const min = Math.min(...data), max = Math.max(...data), range = max - min || 1
-  const pts = data.map((v, i) => `${((i / (data.length - 1)) * w).toFixed(1)},${(h - ((v - min) / range) * h).toFixed(1)}`).join(' ')
+  const X = (i: number) => (i / (data.length - 1)) * w
+  const Y = (v: number) => h - ((v - min) / range) * h
+  const pts = data.map((v, i) => `${X(i).toFixed(1)},${Y(v).toFixed(1)}`).join(' ')
+  const onMove = (e: MouseEvent) => {
+    const r = ref.current?.getBoundingClientRect()
+    if (!r) return
+    const fx = (e.clientX - r.left) / r.width
+    setHover(Math.max(0, Math.min(data.length - 1, Math.round(fx * (data.length - 1)))))
+  }
+  const hv = hover != null ? data[hover] : null
   return (
-    <svg className={styles.vixSpark} viewBox={`0 0 ${w} ${h}`} preserveAspectRatio="none">
-      <polyline points={pts} fill="none" stroke={color} strokeWidth={1.5} vectorEffect="non-scaling-stroke" />
-    </svg>
+    <div ref={ref} className={styles.vixSparkBox} onMouseMove={onMove} onMouseLeave={() => setHover(null)}>
+      <svg className={styles.vixSpark} viewBox={`0 0 ${w} ${h}`} preserveAspectRatio="none">
+        <polyline points={pts} fill="none" stroke={color} strokeWidth={1.5} vectorEffect="non-scaling-stroke" />
+        {hover != null && <line x1={X(hover)} x2={X(hover)} y1={0} y2={h} stroke="rgba(120,144,163,.5)" strokeWidth={1} vectorEffect="non-scaling-stroke" />}
+      </svg>
+      {hover != null && hv != null && (
+        <>
+          <span className={styles.vixSparkDot} style={{ left: `${(X(hover) / w) * 100}%`, top: `${(Y(hv) / h) * 100}%`, background: color }} />
+          <span className={styles.vixSparkTip} style={{ left: `${(X(hover) / w) * 100}%` }}>{hv.toFixed(2)}</span>
+        </>
+      )}
+    </div>
   )
 }
 

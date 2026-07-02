@@ -105,7 +105,10 @@
 .gaugeZones span { flex: 1; text-align: center; font: 700 7px/1.2 'JetBrains Mono', monospace; letter-spacing: .5px; color: #56636f; }
 .vixSparkWrap { margin-top: 16px; position: relative; }
 .vixSparkLbl { position: absolute; top: -2px; left: 0; font: 700 8px/1 'JetBrains Mono', monospace; color: var(--dim); letter-spacing: 1px; }
+.vixSparkBox { position: relative; }
 .vixSpark { display: block; width: 100%; height: 30px; }
+.vixSparkDot { position: absolute; width: 6px; height: 6px; border-radius: 50%; transform: translate(-50%, -50%); pointer-events: none; box-shadow: 0 0 5px rgba(0,0,0,.6); }
+.vixSparkTip { position: absolute; top: -13px; transform: translateX(-50%); font: 800 9px/1 'JetBrains Mono', monospace; color: #eef3f8; background: rgba(12,17,22,.92); border: 1px solid var(--border); border-radius: 3px; padding: 1px 4px; white-space: nowrap; pointer-events: none; }
 .badge { display: inline-block; font: 800 10px/1 'JetBrains Mono', monospace; padding: 4px 7px; border-radius: 4px; letter-spacing: .5px; }
 .badgeInv { background: rgba(255,23,68,.18); color: #FF1744; border: 1px solid rgba(255,23,68,.5); }
 .badgeOk { background: rgba(0,230,118,.14); color: #00E676; border: 1px solid rgba(0,230,118,.4); }

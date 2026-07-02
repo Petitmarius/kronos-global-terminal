@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { ColorType, createChart, type IChartApi } from 'lightweight-charts'
+import { ColorType, createChart, LineStyle, type IChartApi, type ISeriesApi } from 'lightweight-charts'
 
 import { fetchGlobeCountry } from '../../api'
 import type { CountryDetail } from '../../types'
@@ -7,6 +7,7 @@ import styles from './GlobalMap.module.css'
 
 export default function CountryPanel({ iso, onClose }: { iso: string; onClose: () => void }) {
   const [d, setD] = useState<CountryDetail | null>(null)
+  const [tip, setTip] = useState<{ x: number; y: number; v: number } | null>(null)
   const ref = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
@@ -17,19 +18,29 @@ export default function CountryPanel({ iso, onClose }: { iso: string; onClose: (
   }, [iso])
 
   useEffect(() => {
+    setTip(null)
     let chart: IChartApi | null = null
     if (d && ref.current && d.index.points.length > 1) {
       chart = createChart(ref.current, {
         layout: { background: { type: ColorType.Solid, color: 'transparent' }, textColor: '#4A5663', fontFamily: "'JetBrains Mono', monospace", fontSize: 10, attributionLogo: false },
         grid: { vertLines: { visible: false }, horzLines: { visible: false } },
         rightPriceScale: { visible: false }, timeScale: { visible: false },
-        crosshair: { horzLine: { visible: false }, vertLine: { visible: false } },
+        crosshair: {
+          horzLine: { visible: false, labelVisible: false },
+          vertLine: { visible: true, color: 'rgba(120,144,163,.5)', width: 1, style: LineStyle.Dotted, labelVisible: false },
+        },
         autoSize: true, handleScroll: false, handleScale: false,
       })
       const up = (d.index.pct ?? 0) >= 0
-      const area = chart.addAreaSeries({ lineColor: up ? '#00E676' : '#FF1744', topColor: up ? 'rgba(0,230,118,.25)' : 'rgba(255,23,68,.25)', bottomColor: 'transparent', lineWidth: 2, priceLineVisible: false, lastValueVisible: false })
+      const area: ISeriesApi<'Area'> = chart.addAreaSeries({ lineColor: up ? '#00E676' : '#FF1744', topColor: up ? 'rgba(0,230,118,.25)' : 'rgba(255,23,68,.25)', bottomColor: 'transparent', lineWidth: 2, priceLineVisible: false, lastValueVisible: false })
       area.setData(d.index.points.map((p) => ({ time: p.time as never, value: p.value })))
       chart.timeScale().fitContent()
+      chart.subscribeCrosshairMove((param) => {
+        const pt = param.point
+        const pd = param.seriesData.get(area) as { value?: number } | undefined
+        if (!pt || !pd || pd.value == null) { setTip(null); return }
+        setTip({ x: pt.x as number, y: pt.y as number, v: pd.value })
+      })
     }
     return () => { chart?.remove() }
   }, [d])
@@ -59,7 +70,10 @@ export default function CountryPanel({ iso, onClose }: { iso: string; onClose: (
               {d.index.pct != null ? `${d.index.pct >= 0 ? '+' : ''}${d.index.pct}%` : ''}
             </span>
           </div>
-          <div ref={ref} className={styles.cpChart} />
+          <div className={styles.cpChart}>
+            <div ref={ref} className={styles.cpChartInner} />
+            {tip && <div className={styles.chartTip} style={{ left: tip.x, top: tip.y }}>{tip.v.toFixed(2)}</div>}
+          </div>
           {d.fx && <div className={styles.cpFx}>FX {d.fx.pair.replace('=X', '')} · {d.fx.level} <span className={d.fx.pct >= 0 ? styles.pos : styles.neg}>{d.fx.pct >= 0 ? '+' : ''}{d.fx.pct}%</span></div>}
 
           <div className={styles.cpSection}>MACRO {d.macro.year ? `· World Bank ${d.macro.year}` : ''}</div>

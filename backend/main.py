@@ -204,6 +204,11 @@ async def macro_rrg():
     return await asyncio.to_thread(macro.build_rrg)
 
 
+@app.get("/api/marketcap/{symbol}")
+async def get_marketcap(symbol: str):
+    return await asyncio.to_thread(macro.market_cap, symbol.upper())
+
+
 @app.get("/api/globe/markets")
 async def globe_markets():
     return await asyncio.to_thread(globe.fetch_globe_markets)
