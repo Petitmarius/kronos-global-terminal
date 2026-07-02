@@ -3,10 +3,7 @@ import styles from './GlobalMap.module.css'
 
 const METRICS: MapMetric[] = ['eq', 'gdp', 'inflation', 'unemployment']
 
-export default function MapLegend(
-  { metric, onMetric, showGeo, onToggleGeo }:
-  { metric: MapMetric; onMetric: (m: MapMetric) => void; showGeo: boolean; onToggleGeo: (v: boolean) => void },
-) {
+export default function MapLegend({ metric, onMetric }: { metric: MapMetric; onMetric: (m: MapMetric) => void }) {
   const meta = METRIC_META[metric]
   return (
     <div className={styles.legend}>
@@ -22,9 +19,6 @@ export default function MapLegend(
         <span className={styles.legendBar} style={{ background: meta.gradient }} />
         <span>{meta.hi}</span>
       </div>
-      <button className={`${styles.legendToggle} ${showGeo ? styles.legendToggleOn : ''}`} onClick={() => onToggleGeo(!showGeo)}>
-        ◉ Geopolitical
-      </button>
     </div>
   )
 }
