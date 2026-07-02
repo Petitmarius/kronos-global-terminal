@@ -9,6 +9,7 @@ from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 
 import config
+import globe
 import macro
 import providers
 from assets import CATEGORIES
@@ -29,6 +30,16 @@ async def macro_loop() -> None:
         await asyncio.sleep(30)
 
 
+async def globe_loop() -> None:
+    """Keep the global markets board cache warm."""
+    while True:
+        try:
+            await asyncio.to_thread(globe.fetch_globe_markets)
+        except Exception:  # noqa: BLE001
+            pass
+        await asyncio.sleep(30)
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     tasks = [
@@ -37,6 +48,7 @@ async def lifespan(app: FastAPI):
         asyncio.create_task(poll_loop()),
         asyncio.create_task(baseline_loop()),
         asyncio.create_task(macro_loop()),
+        asyncio.create_task(globe_loop()),
     ]
     try:
         yield
@@ -190,6 +202,24 @@ async def macro_correlations():
 @app.get("/api/macro/rrg")
 async def macro_rrg():
     return await asyncio.to_thread(macro.build_rrg)
+
+
+@app.get("/api/globe/markets")
+async def globe_markets():
+    return await asyncio.to_thread(globe.fetch_globe_markets)
+
+
+@app.get("/api/globe/geo")
+async def globe_geo():
+    return await asyncio.to_thread(globe.build_geo)
+
+
+@app.get("/api/globe/country/{iso}")
+async def globe_country(iso: str):
+    data = await asyncio.to_thread(globe.build_country, iso.upper())
+    if data is None:
+        raise HTTPException(404, f"Unknown country {iso}")
+    return data
 
 
 @app.websocket("/ws/prices")
