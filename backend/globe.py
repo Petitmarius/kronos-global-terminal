@@ -164,3 +164,47 @@ def build_geo() -> dict:
     out = {"available": bool(pts), "points": pts}
     _geo_cache = (now, out)
     return out
+
+
+_country_cache: dict[str, tuple[float, dict]] = {}
+_COUNTRY_TTL = 300.0
+_NEWS_BY_ISO = {c["iso"]: c for c in NEWS_COUNTRIES}
+
+
+def _country_news(iso: str, items: list[dict], limit: int = 6) -> list[dict]:
+    c = _NEWS_BY_ISO.get(iso)
+    if not c:
+        return []
+    pats = [re.compile(rf"\b{re.escape(a.lower())}\b") for a in c["aliases"]]
+    hits = [it for it in items if any(p.search((it.get("headline") or "").lower()) for p in pats)]
+    hits.sort(key=lambda it: it.get("datetime", 0), reverse=True)
+    return [{"headline": it.get("headline"), "url": it.get("url"),
+             "source": it.get("source"), "datetime": it.get("datetime", 0)} for it in hits[:limit]]
+
+
+def build_country(iso: str) -> dict | None:
+    meta = next((c for c in GLOBE_MARKETS if c["iso"] == iso), None)
+    if not meta:
+        return None
+    now = time.time()
+    if iso in _country_cache and now - _country_cache[iso][0] < _COUNTRY_TTL:
+        return _country_cache[iso][1]
+
+    q = providers.yahoo_quote_raw(meta["index"])
+    candles = providers.yahoo_candles_raw(meta["index"], "1M")
+    index = {"symbol": meta["index"],
+             "level": round(q["price"], 2) if q else None,
+             "pct": round(q["pct"], 2) if q else None,
+             "points": (candles or {}).get("points", [])}
+    fx = None
+    if meta["fx"]:
+        fq = providers.yahoo_quote_raw(meta["fx"])
+        if fq:
+            lvl = 1.0 / fq["price"] if meta["invFx"] and fq["price"] else fq["price"]
+            fx = {"pair": meta["fx"], "level": round(lvl, 4), "pct": round(fq["pct"], 2)}
+    macro_data = world_bank_macro(iso)
+    news = _country_news(iso, macro.fetch_news().get("items", []))
+    out = {"iso": iso, "name": meta["name"], "index": index, "fx": fx,
+           "macro": macro_data, "news": news}
+    _country_cache[iso] = (now, out)
+    return out

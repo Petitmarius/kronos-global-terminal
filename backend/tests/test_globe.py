@@ -49,3 +49,16 @@ def test_news_hotspots_counts_and_samples():
 def test_news_hotspots_word_boundary():
     pts = globe.news_hotspots([{"headline": "This caused a stir", "datetime": 0}])
     assert pts == []
+
+
+def test_country_news_filters_and_trims():
+    items = [
+        {"headline": "Germany bond sale", "url": "u1", "source": "s", "datetime": 2, "impact": "high"},
+        {"headline": "France budget vote", "url": "u2", "source": "s", "datetime": 1, "impact": "low"},
+    ]
+    out = globe._country_news("DE", items)
+    assert len(out) == 1 and out[0]["headline"] == "Germany bond sale"
+    assert set(out[0]) == {"headline", "url", "source", "datetime"}
+
+def test_country_news_unknown_iso_empty():
+    assert globe._country_news("ZZ", [{"headline": "x", "datetime": 0}]) == []
