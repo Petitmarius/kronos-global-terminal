@@ -7,6 +7,7 @@ import OrderPanel from './components/OrderPanel'
 import Toasts from './components/Toasts'
 import Watchlist from './components/Watchlist'
 import MacroDashboard from './components/macro/MacroDashboard'
+import GlobalMap from './components/globe/GlobalMap'
 import { useStore } from './store'
 
 export default function App() {
@@ -37,15 +38,15 @@ export default function App() {
   return (
     <div className="app">
       <Header />
-      {view === 'TERMINAL' ? (
+      {view === 'TERMINAL' && (
         <div className="body">
           <Watchlist />
           <CenterPanel />
           <OrderPanel />
         </div>
-      ) : (
-        <MacroDashboard />
       )}
+      {view === 'MACRO' && <MacroDashboard />}
+      {view === 'GLOBAL' && <GlobalMap />}
       <Toasts />
     </div>
   )

@@ -35,7 +35,7 @@ export default function Header() {
         </div>
 
         <nav className={styles.nav}>
-          {(['TERMINAL', 'MACRO'] as const).map((v) => (
+          {(['TERMINAL', 'MACRO', 'GLOBAL'] as const).map((v) => (
             <button
               key={v}
               className={`${styles.navBtn} ${view === v ? styles.navOn : ''}`}

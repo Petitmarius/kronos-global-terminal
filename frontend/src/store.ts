@@ -66,8 +66,8 @@ interface Store {
   live: boolean
   connected: boolean
 
-  view: 'TERMINAL' | 'MACRO'
-  setView: (v: 'TERMINAL' | 'MACRO') => void
+  view: 'TERMINAL' | 'MACRO' | 'GLOBAL'
+  setView: (v: 'TERMINAL' | 'MACRO' | 'GLOBAL') => void
 
   selected: string
   timeframe: string
@@ -114,7 +114,7 @@ export const useStore = create<Store>((set) => ({
   live: false,
   connected: false,
 
-  view: loadLS<'TERMINAL' | 'MACRO'>(LS_VIEW, 'TERMINAL'),
+  view: loadLS<'TERMINAL' | 'MACRO' | 'GLOBAL'>(LS_VIEW, 'TERMINAL'),
 
   selected: 'NAS100',
   timeframe: '1D',
