@@ -3,6 +3,7 @@ import type { MacroMetric } from '../types'
 export type MapMetric = 'eq' | MacroMetric
 
 const RED = [255, 23, 68], GREEN = [0, 230, 118], AMBER = [255, 145, 0], DARK = [20, 27, 35]
+const BLUE = [66, 165, 245]
 const lerp = (a: number, b: number, t: number) => a + (b - a) * t
 const mix = (c1: number[], c2: number[], t: number) => {
   const k = Math.max(0, Math.min(1, t))
@@ -34,4 +35,16 @@ export const METRIC_META: Record<MapMetric, { label: string; short: string; unit
   gdp: { label: 'GDP growth', short: 'GDP', unit: '%', lo: '−6%', hi: '+6%', gradient: 'linear-gradient(90deg,#FF1744,#141b23 50%,#00E676)' },
   inflation: { label: 'Inflation', short: 'CPI', unit: '%', lo: 'low', hi: 'high', gradient: 'linear-gradient(90deg,#00E676,#FF9100 50%,#FF1744)' },
   unemployment: { label: 'Unemployment', short: 'JOBS', unit: '%', lo: 'low', hi: 'high', gradient: 'linear-gradient(90deg,#00E676,#FF1744)' },
+}
+
+// Sequential blue ramp for exposure intensity (share = notional / maxNotional).
+export function expoFill(share: number): string {
+  const t = Math.max(0, Math.min(1, Math.sqrt(Math.max(0, share)))) * 0.85 + 0.15
+  return mix(DARK, BLUE, t)
+}
+
+// Diverging green/red for latent P&L, scaled to the book's own max |latent|.
+export function pnlFill(latent: number, bound: number): string {
+  const t = Math.max(-1, Math.min(1, latent / (bound || 1)))
+  return t >= 0 ? mix(DARK, GREEN, t * 0.85 + 0.12) : mix(DARK, RED, -t * 0.85 + 0.12)
 }
