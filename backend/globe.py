@@ -72,3 +72,34 @@ def world_bank_macro(iso: str) -> dict:
     out = out if got else {"available": False}
     _wb_cache[iso] = (now, out)
     return out
+
+
+_markets_cache: tuple[float, dict] | None = None
+_MK_TTL = 20.0
+
+
+def build_globe_markets(quotes: dict[str, dict]) -> dict:
+    countries = []
+    for c in GLOBE_MARKETS:
+        q = quotes.get(c["index"])
+        if not q:
+            continue
+        countries.append({"iso": c["iso"], "num": c["num"], "name": c["name"],
+                          "index": c["index"], "level": round(q["price"], 2),
+                          "pct": round(q["pct"], 2)})
+    return {"updated": int(time.time() * 1000), "countries": countries}
+
+
+def fetch_globe_markets() -> dict:
+    global _markets_cache
+    now = time.time()
+    if _markets_cache and now - _markets_cache[0] < _MK_TTL:
+        return _markets_cache[1]
+    quotes: dict[str, dict] = {}
+    for c in GLOBE_MARKETS:
+        q = providers.yahoo_quote_raw(c["index"])
+        if q:
+            quotes[c["index"]] = q
+    board = build_globe_markets(quotes)
+    _markets_cache = (now, board)
+    return board
