@@ -69,6 +69,10 @@ Tout fonctionne **sans aucune clé** (données réelles via Yahoo). Deux clés g
   - **Indicateurs économiques** (CPI, PIB, chômage, taux) via **FRED**.
   - Macro de marché **réelle** via Yahoo (sans clé) ; l'éco vient de **FRED** (clé gratuite dans
     `backend/.env`, `FRED_API_KEY`) — sinon ces panneaux invitent à ajouter la clé (**rien n'est simulé**).
+- **Global Macro Map** (onglet principal) : carte du monde interactive — pays colorés par la
+  performance du jour de leur indice (Yahoo), clic → volet pays (indice + mini-graphe, devise,
+  macro **World Bank** annuelle, news du pays), **horloge des sessions** mondiales, et une couche
+  **géopolitique** en bulles (pays cités dans l'actu marché). Rien n'est simulé.
 - **Watchlist** personnalisable : recherche n'importe quel marché (actions, indices, forex, crypto,
   matières premières), ajout/suppression, **sauvegardée** (localStorage).
 - **Graphique néon** TradingView · durées **1D · 1W · 1M · 3M · 6M · YTD · 1Y · 5Y · MAX**
