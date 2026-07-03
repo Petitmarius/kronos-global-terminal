@@ -31,6 +31,7 @@ export default function CenterPanel() {
   const clearHistory = useStore((s) => s.clearHistory)
   const addAlert = useStore((s) => s.addAlert)
   const removeAlert = useStore((s) => s.removeAlert)
+  const select = useStore((s) => s.select)
 
   const [tab, setTab] = useState<(typeof TABS)[number]>('POSITIONS')
   const [alertPrice, setAlertPrice] = useState('')
@@ -173,7 +174,7 @@ export default function CenterPanel() {
                   const { pnl, pct, current } = positionPnl(p, assets)
                   const sc = signClass(pnl)
                   return (
-                    <tr key={p.id}>
+                    <tr key={p.id} className={styles.clickRow} onClick={() => select(p.symbol)}>
                       <td className={styles.tsym}>{p.symbol}</td>
                       <td><span className={p.sign > 0 ? styles.tagBuy : styles.tagSell}>{p.dir}</span></td>
                       <td>{p.lots.toFixed(2)}</td>
@@ -184,7 +185,7 @@ export default function CenterPanel() {
                       <td>{p.sl ? fmt(p.sl, d) : '—'}</td>
                       <td>{p.tp ? fmt(p.tp, d) : '—'}</td>
                       <td className="mut">{formatTime(p.openedAt)}</td>
-                      <td><button className={styles.close} title="Close" onClick={() => closePosition(p.id)}>✕</button></td>
+                      <td><button className={styles.close} title="Close" onClick={(e) => { e.stopPropagation(); closePosition(p.id) }}>✕</button></td>
                     </tr>
                   )
                 })}
@@ -205,7 +206,7 @@ export default function CenterPanel() {
                   const d = assets[o.symbol]?.digits ?? 2
                   const cur = assets[o.symbol]?.price
                   return (
-                    <tr key={o.id}>
+                    <tr key={o.id} className={styles.clickRow} onClick={() => select(o.symbol)}>
                       <td className={styles.tsym}>{o.symbol}</td>
                       <td><span className={o.sign > 0 ? styles.tagBuy : styles.tagSell}>{o.dir}</span></td>
                       <td className="amb">{o.type}</td>
@@ -215,7 +216,7 @@ export default function CenterPanel() {
                       <td>{o.sl ? fmt(o.sl, d) : '—'}</td>
                       <td>{o.tp ? fmt(o.tp, d) : '—'}</td>
                       <td className="mut">{formatStamp(o.createdAt)}</td>
-                      <td><button className={styles.close} title="Cancel" onClick={() => cancelPending(o.id)}>✕</button></td>
+                      <td><button className={styles.close} title="Cancel" onClick={(e) => { e.stopPropagation(); cancelPending(o.id) }}>✕</button></td>
                     </tr>
                   )
                 })}
