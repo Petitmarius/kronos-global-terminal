@@ -134,7 +134,7 @@ export interface Alert {
 
 export interface Notice {
   id: string
-  kind: 'SL' | 'TP' | 'ALERT' | 'TRADE'
+  kind: 'SL' | 'TP' | 'ALERT' | 'TRADE' | 'ERROR'
   text: string
   ts: number
 }
