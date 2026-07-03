@@ -58,3 +58,6 @@
 .tk { display: inline-flex; gap: 8px; padding: 0 22px; font-size: 12px; border-right: 1px solid var(--border); }
 .tk b { color: var(--text); font-weight: 700; letter-spacing: .5px; }
 .px { color: var(--muted); }
+
+.gear { background: transparent; border: 1px solid var(--border-2); color: var(--muted); font-size: 13px; border-radius: 6px; width: 28px; height: 28px; cursor: pointer; line-height: 1; }
+.gear:hover { color: var(--amber); border-color: var(--amber); }
