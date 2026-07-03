@@ -62,8 +62,11 @@ export function buildExposure(
 
   for (const p of positions) {
     const a = assets[p.symbol]
-    const notional = (a?.price ?? p.entry) * p.lots * (a?.contract ?? 1)
-    const latent = a ? (a.price - p.entry) * p.sign * p.lots * a.contract : 0
+    const hasRate = p.entryRate != null
+    const curRate = hasRate ? (a?.usdRate ?? 1) : 1
+    const entRate = p.entryRate ?? 1
+    const notional = (a?.price ?? p.entry) * p.lots * (a?.contract ?? 1) * curRate
+    const latent = a ? (a.price * curRate - p.entry * entRate) * p.sign * p.lots * a.contract : 0
     const iso = resolveIso(p.symbol, customs, indexMap, assets)
     if (iso) {
       const c = ensure(iso)
