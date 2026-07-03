@@ -48,8 +48,17 @@ const persistedWatchlist = loadLS<string[] | null>(LS_WL, null)
 const persistedCustoms = loadLS<Record<string, CustomMeta>>(LS_CUSTOM, {})
 const persistedSim = loadLS<SimState>(LS_SIM, { positions: [], history: [], orders: [], alerts: [], pending: [] })
 
-function buildClosed(p: Position, exit: number, reason: CloseReason, contract: number): ClosedTrade {
-  const pnl = (exit - p.entry) * p.sign * p.lots * contract
+// A position is FX-converted only if it carries entryRate (opened after the FX
+// change). Pre-existing positions use rate 1 on both sides -> behave as before.
+function fxRates(p: Position, a: Asset | undefined): { curRate: number; entRate: number } {
+  const hasRate = p.entryRate != null
+  return { curRate: hasRate ? (a?.usdRate ?? 1) : 1, entRate: p.entryRate ?? 1 }
+}
+
+function buildClosed(p: Position, exit: number, reason: CloseReason, contract: number, exitRate: number): ClosedTrade {
+  const hasRate = p.entryRate != null
+  const er = hasRate ? exitRate : 1
+  const pnl = (exit * er - p.entry * (p.entryRate ?? 1)) * p.sign * p.lots * contract
   return {
     id: uid(), symbol: p.symbol, dir: p.dir, sign: p.sign, lots: p.lots,
     entry: p.entry, exit, pnl, pnlPct: p.margin ? (pnl / p.margin) * 100 : 0,
@@ -154,7 +163,7 @@ export const useStore = create<Store>((set) => ({
       const assets = { ...s.assets }
       for (const q of quotes) {
         const cur = assets[q.symbol]
-        if (cur) assets[q.symbol] = { ...cur, price: q.price, change: q.change, pct: q.pct, source: q.source, ts: q.ts }
+        if (cur) assets[q.symbol] = { ...cur, price: q.price, change: q.change, pct: q.pct, source: q.source, ts: q.ts, usdRate: q.usdRate ?? cur.usdRate }
       }
 
       const notices: Notice[] = []
@@ -181,7 +190,7 @@ export const useStore = create<Store>((set) => ({
         }
         if (hit) {
           const exit = hit === 'SL' ? (p.sl as number) : (p.tp as number)
-          const ct = buildClosed(p, exit, hit, a.contract)
+          const ct = buildClosed(p, exit, hit, a.contract, a.usdRate ?? 1)
           history = [ct, ...history]
           orders = [orderRec(p.symbol, p.dir, 'CLOSE', p.lots, exit), ...orders]
           notices.push({ id: uid(), kind: hit, text: `${hit} hit · ${p.symbol} ${p.dir} → ${ct.pnl >= 0 ? '+' : ''}$${ct.pnl.toFixed(2)}`, ts: Date.now() })
@@ -203,7 +212,7 @@ export const useStore = create<Store>((set) => ({
           ? (o.sign > 0 ? price <= o.price : price >= o.price)
           : (o.sign > 0 ? price >= o.price : price <= o.price)
         if (fill) {
-          filled.push({ id: uid(), symbol: o.symbol, dir: o.dir, sign: o.sign, lots: o.lots, entry: o.price, sl: o.sl, tp: o.tp, margin: o.margin, openedAt: Date.now() })
+          filled.push({ id: uid(), symbol: o.symbol, dir: o.dir, sign: o.sign, lots: o.lots, entry: o.price, sl: o.sl, tp: o.tp, margin: o.margin, openedAt: Date.now(), entryRate: a.usdRate ?? 1 })
           orders = [orderRec(o.symbol, o.dir, 'OPEN', o.lots, o.price), ...orders]
           notices.push({ id: uid(), kind: 'TRADE', text: `${o.type} filled · ${o.symbol} ${o.dir} @ ${o.price}`, ts: Date.now() })
           changed = true
@@ -302,7 +311,7 @@ export const useStore = create<Store>((set) => ({
       if (!p) return {}
       const a = s.assets[p.symbol]
       const exit = a ? a.price : p.entry
-      const ct = buildClosed(p, exit, reason, a?.contract ?? 1)
+      const ct = buildClosed(p, exit, reason, a?.contract ?? 1, a?.usdRate ?? 1)
       const positions = s.positions.filter((x) => x.id !== id)
       const history = [ct, ...s.history]
       const orders = [orderRec(p.symbol, p.dir, 'CLOSE', p.lots, exit), ...s.orders]
@@ -319,7 +328,7 @@ export const useStore = create<Store>((set) => ({
       for (const p of s.positions) {
         const a = s.assets[p.symbol]
         const exit = a ? a.price : p.entry
-        history = [buildClosed(p, exit, 'manual', a?.contract ?? 1), ...history]
+        history = [buildClosed(p, exit, 'manual', a?.contract ?? 1, a?.usdRate ?? 1), ...history]
         orders = [orderRec(p.symbol, p.dir, 'CLOSE', p.lots, exit), ...orders]
       }
       persistSim({ positions: [], history, orders, alerts: s.alerts, pending: s.pending })
@@ -355,7 +364,10 @@ export function computeAccount(positions: Position[], assets: Record<string, Ass
   for (const p of positions) {
     const a = assets[p.symbol]
     margin += p.margin
-    if (a) unrealized += (a.price - p.entry) * p.sign * p.lots * a.contract
+    if (a) {
+      const { curRate, entRate } = fxRates(p, a)
+      unrealized += (a.price * curRate - p.entry * entRate) * p.sign * p.lots * a.contract
+    }
   }
   let realizedAll = 0
   let realizedToday = 0
@@ -371,7 +383,8 @@ export function computeAccount(positions: Position[], assets: Record<string, Ass
 export function positionPnl(p: Position, assets: Record<string, Asset>): { pnl: number; pct: number; current: number } {
   const a = assets[p.symbol]
   const current = a ? a.price : p.entry
-  const pnl = (current - p.entry) * p.sign * p.lots * (a?.contract ?? 1)
+  const { curRate, entRate } = fxRates(p, a)
+  const pnl = (current * curRate - p.entry * entRate) * p.sign * p.lots * (a?.contract ?? 1)
   const pct = p.margin ? (pnl / p.margin) * 100 : 0
   return { pnl, pct, current }
 }
