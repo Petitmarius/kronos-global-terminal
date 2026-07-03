@@ -139,6 +139,7 @@ def quote_from_meta(meta: dict) -> dict | None:
         "open": meta.get("regularMarketOpen"),
         "high": meta.get("regularMarketDayHigh"),
         "low": meta.get("regularMarketDayLow"),
+        "currency": meta.get("currency"),
     }
 
 
@@ -155,6 +156,28 @@ def yahoo_quote_raw(ysym: str) -> dict | None:
     if q:
         _raw_quote_cache[ysym] = (now, q)
     return q
+
+
+_fx_cache: dict[str, tuple[float, float]] = {}   # currency -> (ts, rate)
+_FX_TTL = 60.0
+
+
+def usd_rate(currency: str) -> float:
+    """USD per 1 unit of `currency` (EUR->~1.08, JPY->~0.0063). Cached ~60s.
+    USD passes through as 1.0; a failed lookup returns the last known rate (else 1.0)."""
+    cur = (currency or "USD").upper()
+    if cur == "USD":
+        return 1.0
+    now = time.time()
+    c = _fx_cache.get(cur)
+    if c and now - c[0] < _FX_TTL:
+        return c[1]
+    q = yahoo_quote_raw(f"{cur}USD=X")
+    if q and q.get("price"):
+        rate = float(q["price"])
+        _fx_cache[cur] = (now, rate)
+        return rate
+    return c[1] if c else 1.0
 
 
 def yahoo_quote(symbol: str) -> dict | None:
@@ -197,7 +220,7 @@ def yahoo_quote(symbol: str) -> dict | None:
 
     out = {"price": float(price), "prevClose": float(prev),
            "open": float(o) if o else None, "high": float(h) if h else None,
-           "low": float(l) if l else None}
+           "low": float(l) if l else None, "currency": meta.get("currency")}
     _quote_cache[symbol] = (now, out)
     return out
 

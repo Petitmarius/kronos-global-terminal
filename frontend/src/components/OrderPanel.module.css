@@ -46,3 +46,5 @@
 .sell { background: linear-gradient(180deg, #FF1744, #d50f37); color: #fff; }
 .buy:hover { box-shadow: 0 0 16px rgba(0, 230, 118, .5); }
 .sell:hover { box-shadow: 0 0 16px rgba(255, 23, 68, .5); }
+
+.fxHint { font-size: 9.5px; color: var(--dim); text-align: center; margin-top: 6px; letter-spacing: .3px; }

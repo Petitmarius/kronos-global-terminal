@@ -58,6 +58,6 @@ def universe() -> list[dict]:
         out.append({
             "symbol": sym, "name": name, "cat": cat, "digits": digits,
             "contract": contract, "price": price, "prev_close": prev_close,
-            "provider": FINNHUB_MAP.get(sym),
+            "provider": FINNHUB_MAP.get(sym), "currency": "USD",
         })
     return out

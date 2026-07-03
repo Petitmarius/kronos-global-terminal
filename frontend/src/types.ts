@@ -22,6 +22,8 @@ export interface Asset {
   pct: number
   source: Source
   ts: number
+  currency: string
+  usdRate: number
   stats: Stats
 }
 
@@ -32,6 +34,7 @@ export interface Quote {
   pct: number
   source: Source
   ts: number
+  usdRate?: number
 }
 
 export interface CandlePoint {
@@ -73,6 +76,7 @@ export interface Position {
   tp: number | null
   margin: number
   openedAt: number
+  entryRate?: number
 }
 
 export type OrderType = 'MARKET' | 'LIMIT' | 'STOP'

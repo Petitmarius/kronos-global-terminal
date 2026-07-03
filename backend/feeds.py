@@ -69,6 +69,28 @@ async def baseline_loop() -> None:
         await asyncio.sleep(60)
 
 
+async def fx_loop() -> None:
+    """Refresh the USD conversion rate for foreign-currency equities (~60s) so the
+    account math stays correct as FX moves. The quote carries usdRate downstream."""
+    await asyncio.sleep(2.0)
+    while True:
+        updated: list[dict] = []
+        for sym, a in list(MARKET.assets.items()):
+            cur = a.get("currency", "USD")
+            if a.get("cat") == "EQ" and cur != "USD":
+                try:
+                    rate = await asyncio.to_thread(providers.usd_rate, cur)
+                    r = MARKET.set_usd_rate(sym, rate)
+                    if r:
+                        updated.append(r)
+                except Exception as exc:  # noqa: BLE001
+                    log.debug("fx %s failed: %s", sym, exc)
+                await asyncio.sleep(0.2)
+        if updated:
+            await HUB.broadcast({"type": "quotes", "data": updated})
+        await asyncio.sleep(60)
+
+
 async def simulator_loop() -> None:
     while True:
         quotes = MARKET.sim_step()
