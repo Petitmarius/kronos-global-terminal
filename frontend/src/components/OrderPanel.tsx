@@ -60,6 +60,7 @@ export default function OrderPanel() {
   const price = asset?.price
   const digits = asset?.digits ?? 2
   const spread = asset?.stats.spread ?? 0
+  const rate = asset?.usdRate ?? 1
 
   // depth-of-market follows the streaming price; sizes jitter each tick
   useEffect(() => {
@@ -84,11 +85,11 @@ export default function OrderPanel() {
 
   const { value, margin, risk } = useMemo(() => {
     if (!asset) return { value: 0, margin: 0, risk: 0 }
-    const v = lots * orderPrice * asset.contract
+    const v = lots * orderPrice * asset.contract * rate
     const m = v / LEVERAGE
-    const r = slVal != null ? Math.abs(orderPrice - slVal) * lots * asset.contract : v * 0.0022
+    const r = slVal != null ? Math.abs(orderPrice - slVal) * lots * asset.contract * rate : v * 0.0022
     return { value: v, margin: m, risk: r }
-  }, [asset, orderPrice, lots, slVal])
+  }, [asset, orderPrice, lots, slVal, rate])
 
   if (!asset || !book || price == null) {
     return (
@@ -104,7 +105,7 @@ export default function OrderPanel() {
       openPosition({
         id: uid(), symbol: selected, dir: side, sign, lots,
         entry: side === 'BUY' ? book.ask : book.bid,
-        sl: slVal, tp: tpVal, margin, openedAt: Date.now(),
+        sl: slVal, tp: tpVal, margin, openedAt: Date.now(), entryRate: rate,
       })
     } else {
       placePending({
@@ -191,6 +192,10 @@ export default function OrderPanel() {
           <div className={styles.riskCell}><span className={styles.riskK}>MARGIN</span><span className={styles.riskV}>{fmtUsd(margin)}</span></div>
           <div className={styles.riskCell}><span className={styles.riskK}>RISK</span><span className={`${styles.riskV} neg`}>{fmtUsd(risk)}</span></div>
         </div>
+
+        {asset.currency !== 'USD' && (
+          <div className={styles.fxHint}>≈ converted at {asset.currency}/USD {rate.toFixed(4)}</div>
+        )}
 
         <div className={styles.actions}>
           <button className={styles.buy} onClick={() => submit('BUY')}>▲ BUY</button>
