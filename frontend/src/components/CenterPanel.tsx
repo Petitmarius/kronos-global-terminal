@@ -81,6 +81,7 @@ export default function CenterPanel() {
             <div className={styles.idtitle}>
               <span className={styles.sym}>{asset.symbol}</span>
               <span className={styles.badge}>{asset.cat}</span>
+              {asset.currency !== 'USD' && <span className={styles.curBadge}>{asset.currency}</span>}
               {asset.source === 'live' && <span className={styles.liveBadge}>● LIVE</span>}
             </div>
             <div className={styles.full}>{asset.name}</div>
@@ -90,6 +91,9 @@ export default function CenterPanel() {
             <div className={`${styles.c} ${signClass(asset.pct)}`}>
               {arrow(asset.pct)} {fmt(Math.abs(asset.change), dig)} ({fmtPct(asset.pct)})
             </div>
+            {asset.currency !== 'USD' && asset.usdRate !== 1 && (
+              <div className={styles.usdConv}>≈ {fmtUsd(asset.price * asset.usdRate)}</div>
+            )}
             {mktCap != null && <div className={styles.mcap}>MKT CAP <b>{fmtMcap(mktCap)}</b></div>}
           </div>
         </div>
