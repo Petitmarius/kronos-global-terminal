@@ -52,6 +52,7 @@ class MarketState:
                 "spread": round(span * 0.05, max(1, a["digits"] - 1)),
                 "source": "sim",
                 "pc_real": False,   # True once a real previous close is known
+                "usd_rate": 1.0,
             }
 
     # -- quote helpers -----------------------------------------------------
@@ -62,6 +63,7 @@ class MarketState:
             "symbol": a["symbol"], "price": round(a["price"], a["digits"]),
             "change": round(change, a["digits"]), "pct": round(pct, 2),
             "source": a["source"], "ts": int(time.time() * 1000),
+            "usdRate": a.get("usd_rate", 1.0),
         }
 
     def asset_dict(self, a: dict) -> dict:
@@ -69,6 +71,8 @@ class MarketState:
         return {
             **q, "name": a["name"], "cat": a["cat"], "digits": a["digits"],
             "contract": a["contract"],
+            "currency": a.get("currency", "USD"),
+            "usdRate": a.get("usd_rate", 1.0),
             "stats": {
                 "open": round(a["open"], a["digits"]),
                 "high": round(a["high"], a["digits"]),
@@ -156,7 +160,8 @@ class MarketState:
         return out
 
     def register(self, symbol: str, name: str, cat: str, digits: int,
-                 contract: float, quote: dict) -> dict:
+                 contract: float, quote: dict, currency: str = "USD",
+                 usd_rate: float = 1.0) -> dict:
         """Add a user-requested instrument to the universe at runtime."""
         price, prev = quote["price"], quote["prevClose"]
         self.assets[symbol] = {
@@ -169,6 +174,7 @@ class MarketState:
             "volume": 0.0,
             "spread": round(max(price * 5e-4, 10 ** -digits), max(1, digits - 1)),
             "source": "live", "pc_real": True, "custom": True,
+            "currency": currency, "usd_rate": usd_rate,
         }
         return self.asset_dict(self.assets[symbol])
 
@@ -178,6 +184,13 @@ class MarketState:
             del self.assets[symbol]
             return True
         return False
+
+    def set_usd_rate(self, symbol: str, rate: float) -> dict | None:
+        a = self.assets.get(symbol)
+        if not a or rate <= 0:
+            return None
+        a["usd_rate"] = rate
+        return self._quote(a)
 
     # -- chart / depth -----------------------------------------------------
     def candles(self, symbol: str, tf: str) -> dict:

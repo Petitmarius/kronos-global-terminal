@@ -13,7 +13,7 @@ import globe
 import macro
 import providers
 from assets import CATEGORIES
-from feeds import baseline_loop, finnhub_loop, poll_loop, simulator_loop
+from feeds import baseline_loop, finnhub_loop, fx_loop, poll_loop, simulator_loop
 from hub import HUB
 from market import MARKET, TIMEFRAMES
 
@@ -47,6 +47,7 @@ async def lifespan(app: FastAPI):
         asyncio.create_task(finnhub_loop()),
         asyncio.create_task(poll_loop()),
         asyncio.create_task(baseline_loop()),
+        asyncio.create_task(fx_loop()),
         asyncio.create_task(macro_loop()),
         asyncio.create_task(globe_loop()),
     ]
@@ -116,7 +117,11 @@ async def add_asset(symbol: str, name: str = "", cat: str = "EQ"):
         raise HTTPException(404, f"No market data for {symbol}")
     price = quote["price"]
     digits = 6 if price < 1 else 4 if price < 20 else 2
-    asset = MARKET.register(local, name or local, cat or "EQ", digits, 1.0, quote)
+    currency = (quote.get("currency") or "USD").upper()
+    cat_final = cat or "EQ"
+    rate = (await asyncio.to_thread(providers.usd_rate, currency)
+            if cat_final == "EQ" and currency != "USD" else 1.0)
+    asset = MARKET.register(local, name or local, cat_final, digits, 1.0, quote, currency, rate)
     await HUB.broadcast({"type": "asset", "data": asset})
     return asset
 
