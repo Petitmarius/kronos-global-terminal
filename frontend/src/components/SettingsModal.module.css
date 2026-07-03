@@ -1,0 +1,25 @@
+.backdrop { position: fixed; inset: 0; z-index: 2000; background: rgba(0,0,0,.55); display: flex; align-items: center; justify-content: center; }
+.modal { width: 340px; max-width: 92vw; background: var(--panel); border: 1px solid var(--border); border-radius: 12px; box-shadow: 0 20px 60px rgba(0,0,0,.6); overflow: hidden; }
+.head { display: flex; align-items: center; justify-content: space-between; padding: 12px 14px; border-bottom: 1px solid var(--border); }
+.title { font: 800 13px/1 'JetBrains Mono', monospace; letter-spacing: 1.5px; color: #eef3f8; }
+.close { background: transparent; border: none; color: var(--dim); font-size: 15px; cursor: pointer; }
+.close:hover { color: #eef3f8; }
+.section { padding: 14px; border-bottom: 1px solid var(--border); }
+.section:last-child { border-bottom: none; }
+.sLabel { font: 700 9px/1 'JetBrains Mono', monospace; letter-spacing: 1.5px; color: var(--dim); margin-bottom: 10px; }
+.capRow { display: flex; justify-content: space-between; align-items: baseline; font: 700 12px/1.9 'JetBrains Mono', monospace; }
+.capK { color: var(--gray); }
+.capV { color: #eef3f8; font-weight: 800; font-variant-numeric: tabular-nums; }
+.input { width: 100%; margin-top: 10px; background: var(--panel-2); border: 1px solid var(--border); color: var(--text); font-size: 13px; border-radius: 6px; padding: 8px 10px; outline: none; font-family: var(--font); box-sizing: border-box; }
+.input:focus { border-color: var(--amber); }
+.btnRow { display: flex; gap: 8px; margin-top: 10px; }
+.deposit, .withdraw { flex: 1; border: none; font: 800 11px/1 'JetBrains Mono', monospace; letter-spacing: .5px; padding: 9px 0; border-radius: 6px; cursor: pointer; }
+.deposit { background: var(--green); color: #06210f; }
+.withdraw { background: var(--panel-2); color: #cfd8e3; border: 1px solid var(--border-2); }
+.deposit:disabled, .withdraw:disabled { opacity: .4; cursor: not-allowed; }
+.hint { font: 600 9.5px/1.4 'JetBrains Mono', monospace; color: var(--dim); margin-top: 8px; }
+.reset { width: 100%; background: transparent; color: var(--red); border: 1px solid var(--red-d); font: 800 11px/1 'JetBrains Mono', monospace; letter-spacing: .5px; padding: 9px 0; border-radius: 6px; cursor: pointer; }
+.reset:hover { background: rgba(255,23,68,.08); }
+.confirmRow { display: flex; gap: 8px; }
+.confirmReset { flex: 1; background: var(--red); color: #fff; border: none; font: 800 11px/1 'JetBrains Mono', monospace; padding: 9px 0; border-radius: 6px; cursor: pointer; }
+.cancel { flex: 1; background: var(--panel-2); color: #cfd8e3; border: 1px solid var(--border-2); font: 800 11px/1 'JetBrains Mono', monospace; padding: 9px 0; border-radius: 6px; cursor: pointer; }

@@ -1,7 +1,7 @@
 import { create } from 'zustand'
 
 import { BALANCE } from './constants'
-import { isToday, uid } from './format'
+import { fmtUsd, isToday, uid } from './format'
 import type {
   Account, Alert, Asset, ClosedTrade, CloseReason, Notice, OrderRecord, PendingOrder, Position, Quote,
 } from './types'
@@ -10,6 +10,7 @@ const LS_WL = 'apex.watchlist'
 const LS_CUSTOM = 'apex.customs'
 const LS_SIM = 'apex.sim'
 const LS_VIEW = 'apex.view'
+const LS_CAPITAL = 'apex.capital'
 
 interface CustomMeta {
   symbol: string
@@ -47,6 +48,7 @@ function persistSim(s: SimState): void {
 const persistedWatchlist = loadLS<string[] | null>(LS_WL, null)
 const persistedCustoms = loadLS<Record<string, CustomMeta>>(LS_CUSTOM, {})
 const persistedSim = loadLS<SimState>(LS_SIM, { positions: [], history: [], orders: [], alerts: [], pending: [] })
+const persistedCapital = loadLS<number>(LS_CAPITAL, BALANCE)
 
 // A position is FX-converted only if it carries entryRate (opened after the FX
 // change). Pre-existing positions use rate 1 on both sides -> behave as before.
@@ -93,6 +95,7 @@ interface Store {
   orders: OrderRecord[]
   alerts: Alert[]
   notices: Notice[]
+  capital: number
 
   setSnapshot: (assets: Asset[], live: boolean) => void
   applyQuotes: (quotes: Quote[]) => void
@@ -114,6 +117,9 @@ interface Store {
   removeAlert: (id: string) => void
   clearHistory: () => void
   dismissNotice: (id: string) => void
+  deposit: (amount: number) => void
+  withdraw: (amount: number) => void
+  resetAccount: () => void
 }
 
 export const useStore = create<Store>((set) => ({
@@ -140,6 +146,7 @@ export const useStore = create<Store>((set) => ({
   orders: persistedSim.orders ?? [],
   alerts: persistedSim.alerts ?? [],
   notices: [],
+  capital: persistedCapital,
 
   setSnapshot: (assets, live) =>
     set((s) => {
@@ -284,6 +291,11 @@ export const useStore = create<Store>((set) => ({
 
   openPosition: (p) =>
     set((s) => {
+      const free = computeAccount(s.positions, s.assets, s.history, s.capital).free
+      if (p.margin > free) {
+        const notices = [{ id: uid(), kind: 'ERROR' as const, text: `Order blocked — margin ${fmtUsd(p.margin)} exceeds free margin ${fmtUsd(free)}`, ts: Date.now() }, ...s.notices].slice(0, 6)
+        return { notices }
+      }
       const positions = [...s.positions, p]
       const orders = [orderRec(p.symbol, p.dir, 'OPEN', p.lots, p.entry), ...s.orders]
       persistSim({ positions, history: s.history, orders, alerts: s.alerts, pending: s.pending })
@@ -292,6 +304,11 @@ export const useStore = create<Store>((set) => ({
 
   placePending: (o) =>
     set((s) => {
+      const free = computeAccount(s.positions, s.assets, s.history, s.capital).free
+      if (o.margin > free) {
+        const notices = [{ id: uid(), kind: 'ERROR' as const, text: `Order blocked — margin ${fmtUsd(o.margin)} exceeds free margin ${fmtUsd(free)}`, ts: Date.now() }, ...s.notices].slice(0, 6)
+        return { notices }
+      }
       const pending = [o, ...s.pending]
       persistSim({ positions: s.positions, history: s.history, orders: s.orders, alerts: s.alerts, pending })
       const notices = [{ id: uid(), kind: 'TRADE' as const, text: `${o.type} ${o.dir} ${o.symbol} @ ${o.price} placed`, ts: Date.now() }, ...s.notices].slice(0, 6)
@@ -356,9 +373,34 @@ export const useStore = create<Store>((set) => ({
     }),
 
   dismissNotice: (id) => set((s) => ({ notices: s.notices.filter((n) => n.id !== id) })),
+
+  deposit: (amount) =>
+    set((s) => {
+      const add = Math.max(0, amount)
+      if (!add) return {}
+      const capital = s.capital + add
+      saveLS(LS_CAPITAL, capital)
+      return { capital }
+    }),
+
+  withdraw: (amount) =>
+    set((s) => {
+      const free = computeAccount(s.positions, s.assets, s.history, s.capital).free
+      const w = Math.min(Math.max(0, amount), Math.max(0, free))
+      if (!w) return {}
+      const capital = s.capital - w
+      saveLS(LS_CAPITAL, capital)
+      return { capital }
+    }),
+
+  resetAccount: () =>
+    set(() => {
+      persistSim({ positions: [], history: [], orders: [], alerts: [], pending: [] })
+      return { positions: [], pending: [], history: [], orders: [], alerts: [], notices: [] }
+    }),
 }))
 
-export function computeAccount(positions: Position[], assets: Record<string, Asset>, history: ClosedTrade[]): Account {
+export function computeAccount(positions: Position[], assets: Record<string, Asset>, history: ClosedTrade[], capital = BALANCE): Account {
   let unrealized = 0
   let margin = 0
   for (const p of positions) {
@@ -375,7 +417,7 @@ export function computeAccount(positions: Position[], assets: Record<string, Ass
     realizedAll += t.pnl
     if (isToday(t.closedAt)) realizedToday += t.pnl
   }
-  const balance = BALANCE + realizedAll
+  const balance = capital + realizedAll
   const equity = balance + unrealized
   return { balance, equity, pnl: realizedToday + unrealized, margin, free: equity - margin }
 }

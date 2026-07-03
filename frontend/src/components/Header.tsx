@@ -1,5 +1,8 @@
+import { useState } from 'react'
+
 import { computeAccount, useStore } from '../store'
 import { arrow, fmt, fmtPct, fmtUsd, signClass } from '../format'
+import SettingsModal from './SettingsModal'
 import styles from './Header.module.css'
 
 const TICKER = ['XAUUSD', 'USDJPY', 'NVDA', 'TSLA', 'BTCUSD', 'EURUSD',
@@ -22,8 +25,10 @@ export default function Header() {
   const live = useStore((s) => s.live)
   const view = useStore((s) => s.view)
   const setView = useStore((s) => s.setView)
+  const capital = useStore((s) => s.capital)
+  const [settingsOpen, setSettingsOpen] = useState(false)
 
-  const acct = computeAccount(positions, assets, history)
+  const acct = computeAccount(positions, assets, history, capital)
   const ticker = TICKER.map((s) => assets[s]).filter(Boolean)
 
   return (
@@ -62,6 +67,7 @@ export default function Header() {
             <span className={`${styles.dot} ${connected ? styles.dotOn : styles.dotOff}`} />
             {connected ? 'CONNECTED' : 'OFFLINE'}
           </span>
+          <button className={styles.gear} onClick={() => setSettingsOpen(true)} title="Settings">⚙</button>
         </div>
       </header>
 
@@ -77,6 +83,8 @@ export default function Header() {
           ))}
         </div>
       </div>
+
+      {settingsOpen && <SettingsModal onClose={() => setSettingsOpen(false)} />}
     </>
   )
 }

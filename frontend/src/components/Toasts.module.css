@@ -37,3 +37,5 @@
 .kALERT .kind { background: #3a2a0f; color: var(--amber); }
 .kTRADE { border-left-color: var(--blue); }
 .kTRADE .kind { background: #11243a; color: var(--blue); }
+.kERROR { border-left-color: var(--red); }
+.kERROR .kind { background: var(--red-d); color: var(--red); }

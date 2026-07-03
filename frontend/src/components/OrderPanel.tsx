@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 
 import { LEVERAGE } from '../constants'
 import { fmt, fmtCompact, fmtUsd, uid } from '../format'
-import { useStore } from '../store'
+import { computeAccount, useStore } from '../store'
 import type { BookLevel, OrderType } from '../types'
 import styles from './OrderPanel.module.css'
 
@@ -49,6 +49,10 @@ export default function OrderPanel() {
   const selected = useStore((s) => s.selected)
   const openPosition = useStore((s) => s.openPosition)
   const placePending = useStore((s) => s.placePending)
+  const positions = useStore((s) => s.positions)
+  const history = useStore((s) => s.history)
+  const allAssets = useStore((s) => s.assets)
+  const capital = useStore((s) => s.capital)
 
   const [otype, setOtype] = useState<OrderType>('MARKET')
   const [lotsStr, setLotsStr] = useState('0.10')
@@ -98,6 +102,9 @@ export default function OrderPanel() {
       </section>
     )
   }
+
+  const acct = computeAccount(positions, allAssets, history, capital)
+  const insufficient = lots > 0 && margin > acct.free
 
   const submit = (side: 'BUY' | 'SELL') => {
     const sign: 1 | -1 = side === 'BUY' ? 1 : -1
@@ -197,9 +204,13 @@ export default function OrderPanel() {
           <div className={styles.fxHint}>≈ converted at {asset.currency}/USD {rate.toFixed(4)}</div>
         )}
 
+        {insufficient && (
+          <div className={styles.marginErr}>Insufficient free margin — need {fmtUsd(margin)}, have {fmtUsd(acct.free)}</div>
+        )}
+
         <div className={styles.actions}>
-          <button className={styles.buy} onClick={() => submit('BUY')}>▲ BUY</button>
-          <button className={styles.sell} onClick={() => submit('SELL')}>▼ SELL</button>
+          <button className={styles.buy} disabled={insufficient} onClick={() => submit('BUY')}>▲ BUY</button>
+          <button className={styles.sell} disabled={insufficient} onClick={() => submit('SELL')}>▼ SELL</button>
         </div>
       </div>
     </section>

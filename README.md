@@ -76,6 +76,10 @@ Tout fonctionne **sans aucune clé** (données réelles via Yahoo). Deux clés g
   pays). **Barre de synthèse mondiale** (leaders/lanternes rouges + moyennes régionales),
   **horloge des sessions** mondiales, et une couche **géopolitique** en bulles (survol → panneau
   de news du pays). Données réelles (Yahoo + World Bank) ; rien n'est simulé.
+  - **Mode Portfolio** : superpose ton *book* sur la carte — pays teintés par l'**exposition
+    notionnelle**, **bulles** dimensionnées par le capital et colorées par le **P&L latent**, volet
+    gauche (allocation top-5, latent + réalisé par pays, poche « non-géographique » FX/crypto/matières),
+    et **clic → retour au terminal** sur le symbole. 100 % côté client, à partir de tes positions.
 - **Watchlist** personnalisable : recherche n'importe quel marché (actions, indices, forex, crypto,
   matières premières), ajout/suppression, **sauvegardée** (localStorage).
 - **Graphique néon** TradingView · durées **1D · 1W · 1M · 3M · 6M · YTD · 1Y · 5Y · MAX**
@@ -83,9 +87,17 @@ Tout fonctionne **sans aucune clé** (données réelles via Yahoo). Deux clés g
   studies **MA · BB · VOL · RSI · MACD**.
 - **Carnet d'ordres** (L2 simulé, cohérent avec le spread affiché) + **ticket** :
   - **MARKET** (exécution immédiate), **LIMIT** / **STOP** (ordres en attente, onglet PENDING).
+  - **Garde de marge** : un ordre dont la marge dépasse ton *free margin* est **bloqué**
+    (message inline + boutons désactivés + toast).
 - **Simulateur** : clôture manuelle ou auto via **Stop-Loss / Take-Profit**, **alertes de prix**,
   **historique** persistant (TRADE LOG, ORDER HISTORY), notifications toast, et compte calculé
-  (Balance / Equity / P&L journalier / Marge).
+  (Balance / Equity / P&L journalier / Marge). **Capitalisation boursière** affichée dans le bandeau.
+  **Clic sur une position / un ordre en attente** → le graphe bascule sur ce symbole.
+- **Paramètres** (⚙ dans le header) : ajuste le **capital** (dépôt / retrait, retrait plafonné au
+  free margin) et **réinitialise le compte** (efface positions, ordres, historique et alertes).
+- **Actions étrangères en devise locale** (ex. `.PA`, `.T`) : prix affiché dans sa monnaie + conversion
+  `≈ $`, mais tout le calcul du compte est en **USD** avec le taux de change **figé à l'entrée**
+  (le P&L intègre le mouvement du change).
 
 ## Données — transparence
 
@@ -96,8 +108,8 @@ spread que la grille pour rester cohérent. Aucun ordre n'est envoyé à un vrai
 ## Structure
 
 ```
-backend/    main.py · feeds.py · market.py · providers.py · macro.py · assets.py · hub.py · config.py
-frontend/   src/{store.ts, api.ts, indicators.ts, components/*, components/macro/*}
+backend/    main.py · feeds.py · market.py · providers.py · macro.py · globe.py · assets.py · hub.py · config.py · tests/
+frontend/   src/{store.ts, api.ts, indicators.ts, geo/*, components/*, components/macro/*, components/globe/*}
 CLAUDE.md   guide pour agents IA
 dev.ps1     lance backend + frontend
 ```

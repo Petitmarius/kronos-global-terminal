@@ -48,3 +48,6 @@
 .sell:hover { box-shadow: 0 0 16px rgba(255, 23, 68, .5); }
 
 .fxHint { font-size: 9.5px; color: var(--dim); text-align: center; margin-top: 6px; letter-spacing: .3px; }
+
+.marginErr { color: var(--red); font: 700 10px/1.35 'JetBrains Mono', monospace; text-align: center; margin: 8px 0 2px; }
+.buy:disabled, .sell:disabled { opacity: .4; cursor: not-allowed; box-shadow: none; }
