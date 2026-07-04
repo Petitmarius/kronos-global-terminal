@@ -170,7 +170,7 @@ export const useStore = create<Store>((set) => ({
       const assets = { ...s.assets }
       for (const q of quotes) {
         const cur = assets[q.symbol]
-        if (cur) assets[q.symbol] = { ...cur, price: q.price, change: q.change, pct: q.pct, source: q.source, ts: q.ts, usdRate: q.usdRate ?? cur.usdRate }
+        if (cur) assets[q.symbol] = { ...cur, price: q.price, change: q.change, pct: q.pct, source: q.source, ts: q.ts, usdRate: q.usdRate ?? cur.usdRate, stats: { ...cur.stats, w52High: q.w52High ?? cur.stats.w52High, w52Low: q.w52Low ?? cur.stats.w52Low, volume: q.volume ?? cur.stats.volume } }
       }
 
       const notices: Notice[] = []
