@@ -8,6 +8,7 @@ import type { GeoPoint, GlobeGeo, GlobeMarkets, MacroLayer } from '../../types'
 import CountryPanel from './CountryPanel'
 import GeoPanel from './GeoPanel'
 import MapLegend from './MapLegend'
+import AnalyticsPanel from './AnalyticsPanel'
 import PortfolioPanel from './PortfolioPanel'
 import SessionClock from './SessionClock'
 import WorldMap from './WorldMap'
@@ -75,6 +76,7 @@ export default function GlobalMap() {
         </div>
         {!portfolio && <MapLegend metric={metric} onMetric={setMetric} />}
         {portfolio && <PortfolioPanel exposure={exposure} onPick={pick} onClose={() => togglePortfolio(false)} />}
+        {portfolio && <AnalyticsPanel exposure={exposure} history={history} onPick={pick} />}
         {!portfolio && selected && <CountryPanel iso={selected} onClose={() => setSelected(null)} />}
         {showGeo && geoSel && <GeoPanel point={geoSel} onClose={() => setGeoSel(null)} />}
       </div>

@@ -118,3 +118,9 @@
 .ngItem { display: grid; grid-template-columns: 1fr 50px 50px; gap: 6px; align-items: center; padding: 5px 0; border-bottom: 1px solid rgba(96,125,139,.12); font: 700 10.5px/1.2 'JetBrains Mono', monospace; color: #cfd8e3; cursor: pointer; }
 .ngItem:hover .ngSym { color: #42A5F5; }
 .ngSym { font-weight: 800; color: #eef3f8; }
+
+/* right analytics panel */
+.rp { position: absolute; top: 12px; right: 12px; bottom: 12px; width: 300px; z-index: 15; background: rgba(10,14,19,.96); border: 1px solid var(--border); border-radius: 10px; display: flex; flex-direction: column; box-shadow: -8px 0 30px rgba(0,0,0,.4); }
+.rpChart { height: 120px; margin: 8px 0 4px; position: relative; }
+.rpChartInner { position: absolute; inset: 0; }
+.rpEmpty { height: 90px; display: flex; align-items: center; justify-content: center; text-align: center; color: var(--dim); font: 600 10px/1.4 'JetBrains Mono', monospace; padding: 0 12px; }
