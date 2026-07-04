@@ -11,7 +11,7 @@
 
 .brand { display: flex; align-items: baseline; gap: 10px; }
 
-.nav { display: flex; gap: 4px; margin-left: 14px; }
+.nav { display: flex; gap: 4px; margin-left: 14px; align-self: stretch; align-items: flex-end; }
 .navBtn {
   font: 700 11px/1 'JetBrains Mono', monospace;
   letter-spacing: 1px;
@@ -19,11 +19,13 @@
   color: var(--dim);
   background: transparent;
   border: 1px solid var(--border);
-  border-radius: 5px;
+  border-radius: 5px 5px 0 0;
   cursor: pointer;
+  transition: transform .16s ease, color .16s ease, background .16s ease, box-shadow .16s ease, border-color .16s ease;
 }
-.navBtn:hover { color: #cfd8e3; }
+.navBtn:hover { color: #cfd8e3; transform: translateY(-3px); box-shadow: 0 5px 14px rgba(0, 0, 0, .45); border-color: var(--border-2); }
 .navOn { color: #0b1116; background: var(--accent, #00E676); border-color: transparent; }
+.navOn:hover { color: #0b1116; }
 .logo { font-weight: 800; font-size: 17px; letter-spacing: 3px; color: #fff; }
 .logo b { color: var(--green); }
 .tag { font-size: 9.5px; letter-spacing: 2px; color: var(--gray); }

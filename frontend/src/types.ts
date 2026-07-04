@@ -220,7 +220,8 @@ export interface CountryExposure {
   count: number
   topSymbol: string   // largest-notional open position in this country (click-through)
 }
-export interface NonGeoBucket { notional: number; latent: number; realized: number; count: number }
+export interface NonGeoItem { symbol: string; notional: number; latent: number; realized: number }
+export interface NonGeoBucket { notional: number; latent: number; realized: number; count: number; items: NonGeoItem[] }
 export interface NonGeo extends NonGeoBucket {
   byCat: Record<string, NonGeoBucket>   // 'FX' | 'CRYPTO' | 'CMD' | 'INDEX' | 'EQ' | 'OTHER'
   topSymbol: string
