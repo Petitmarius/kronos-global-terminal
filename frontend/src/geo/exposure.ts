@@ -1,4 +1,4 @@
-import type { Asset, ClosedTrade, CountryExposure, ExposureModel, NonGeo, NonGeoBucket, Position } from '../types'
+import type { Asset, ClosedTrade, CountryExposure, ExposureModel, NonGeo, NonGeoBucket, NonGeoItem, Position } from '../types'
 
 interface CustomMeta { symbol: string; yahoo: string; name: string; cat: string }
 
@@ -39,7 +39,7 @@ export function resolveIso(
   return null
 }
 
-const bucket = (): NonGeoBucket => ({ notional: 0, latent: 0, realized: 0, count: 0 })
+const bucket = (): NonGeoBucket => ({ notional: 0, latent: 0, realized: 0, count: 0, items: [] })
 
 export function buildExposure(
   positions: Position[],
@@ -51,6 +51,7 @@ export function buildExposure(
   const perCountry: Record<string, CountryExposure> = {}
   const nonGeo: NonGeo = { ...bucket(), byCat: {}, topSymbol: '' }
   const topNotional: Record<string, number> = {}
+  const catItems: Record<string, Record<string, NonGeoItem>> = {}
   let nonGeoTop = 0
 
   const ensure = (iso: string): CountryExposure => {
@@ -59,6 +60,10 @@ export function buildExposure(
     return c
   }
   const catBucket = (cat: string): NonGeoBucket => nonGeo.byCat[cat] ?? (nonGeo.byCat[cat] = bucket())
+  const itemFor = (cat: string, symbol: string): NonGeoItem => {
+    const m = catItems[cat] ?? (catItems[cat] = {})
+    return m[symbol] ?? (m[symbol] = { symbol, notional: 0, latent: 0, realized: 0 })
+  }
 
   for (const p of positions) {
     const a = assets[p.symbol]
@@ -74,8 +79,10 @@ export function buildExposure(
       if (notional > (topNotional[iso] ?? 0)) { topNotional[iso] = notional; c.topSymbol = p.symbol }
     } else {
       nonGeo.notional += notional; nonGeo.latent += latent; nonGeo.count += 1
-      const b = catBucket(a?.cat ?? 'OTHER')
+      const cat = a?.cat ?? 'OTHER'
+      const b = catBucket(cat)
       b.notional += notional; b.latent += latent; b.count += 1
+      const it = itemFor(cat, p.symbol); it.notional += notional; it.latent += latent
       if (notional > nonGeoTop) { nonGeoTop = notional; nonGeo.topSymbol = p.symbol }
     }
   }
@@ -83,7 +90,16 @@ export function buildExposure(
   for (const t of history) {
     const iso = resolveIso(t.symbol, customs, indexMap, assets)
     if (iso) ensure(iso).realized += t.pnl
-    else { nonGeo.realized += t.pnl; catBucket(assets[t.symbol]?.cat ?? 'OTHER').realized += t.pnl }
+    else {
+      nonGeo.realized += t.pnl
+      const cat = assets[t.symbol]?.cat ?? 'OTHER'
+      catBucket(cat).realized += t.pnl
+      itemFor(cat, t.symbol).realized += t.pnl
+    }
+  }
+
+  for (const [cat, m] of Object.entries(catItems)) {
+    catBucket(cat).items = Object.values(m).sort((a, b) => b.notional - a.notional)
   }
 
   let notionalTot = 0, latentTot = 0, realizedTot = 0, maxNotional = 0, maxAbsLatent = 0
@@ -100,4 +116,25 @@ export function buildExposure(
     maxNotional: Math.max(maxNotional, 1),
     maxAbsLatent: Math.max(maxAbsLatent, 1),
   }
+}
+
+// Cumulative realized P&L over a trailing window (default 30 days), starting at 0.
+// Returns [] when no trade closed in the window. Times are UNIX seconds (daily points).
+export function realizedCurve(history: ClosedTrade[], days = 30): { time: number; value: number }[] {
+  const dayMs = 86_400_000
+  const start = Date.now() - days * dayMs
+  const inWindow = history.filter((t) => t.closedAt >= start)
+  if (inWindow.length === 0) return []
+  const byDay = new Map<number, number>()
+  for (const t of inWindow) {
+    const di = Math.floor((t.closedAt - start) / dayMs)
+    byDay.set(di, (byDay.get(di) ?? 0) + t.pnl)
+  }
+  const out: { time: number; value: number }[] = []
+  let cum = 0
+  for (let i = 0; i <= days; i++) {
+    out.push({ time: Math.floor((start + i * dayMs) / 1000), value: cum })
+    cum += byDay.get(i) ?? 0
+  }
+  return out
 }
