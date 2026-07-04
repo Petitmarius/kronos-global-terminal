@@ -66,6 +66,13 @@ export default function RrgPanel({ rrg }: { rrg: MacroRrg | null }) {
         )
       })}
 
+      {/* numeric scale, auto-ranged around the 100 benchmark (X = RS-Ratio, Y = RS-Momentum) */}
+      <span className={styles.rrgTick} style={{ left: 3, top: '50%', transform: 'translateY(-50%)' }}>{(100 - halfX).toFixed(1)}</span>
+      <span className={styles.rrgTick} style={{ right: 3, top: '50%', transform: 'translateY(-50%)' }}>RS {(100 + halfX).toFixed(1)}</span>
+      <span className={styles.rrgTick} style={{ left: '50%', top: 3, transform: 'translateX(-50%)' }}>Mom {(100 + halfY).toFixed(1)}</span>
+      <span className={styles.rrgTick} style={{ left: '50%', bottom: 3, transform: 'translateX(-50%)' }}>{(100 - halfY).toFixed(1)}</span>
+      <span className={styles.rrgTick} style={{ left: '50%', top: '50%', transform: 'translate(-50%, -50%)' }}>100</span>
+
       {hs && (
         <div className={styles.rrgTip} style={{ left: `${fx(heads[hover as number].x)}%`, top: `${fy(heads[hover as number].y)}%` }}>
           {hs.label} · {hs.quadrant} · RS {heads[hover as number].x.toFixed(1)} / Mom {heads[hover as number].y.toFixed(1)}
