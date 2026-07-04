@@ -75,7 +75,8 @@ export default function PriceChart() {
       const up = (useStore.getState().assets[selected]?.pct ?? 0) >= 0
       upRef.current = up
 
-      const volOn = indicators.has('VOL')
+      const hasVol = pts.some((p) => (p.volume ?? 0) > 0)
+      const volOn = indicators.has('VOL') && hasVol
       const chart = createChart(mainRef.current, {
         ...baseLayout,
         rightPriceScale: { borderVisible: false, scaleMargins: { top: 0.12, bottom: volOn ? 0.24 : 0.08 } },
