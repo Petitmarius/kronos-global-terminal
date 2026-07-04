@@ -1,4 +1,4 @@
-"""APEX terminal backend — FastAPI REST + WebSocket price stream."""
+"""KRONOS Global Terminal backend — FastAPI REST + WebSocket price stream."""
 from __future__ import annotations
 
 import asyncio
@@ -59,7 +59,7 @@ async def lifespan(app: FastAPI):
         await asyncio.gather(*tasks, return_exceptions=True)
 
 
-app = FastAPI(title="APEX Terminal API", version="2.0", lifespan=lifespan)
+app = FastAPI(title="KRONOS Global Terminal API", version="2.0", lifespan=lifespan)
 app.add_middleware(
     CORSMiddleware, allow_origins=config.CORS_ORIGINS or ["*"],
     allow_methods=["*"], allow_headers=["*"],

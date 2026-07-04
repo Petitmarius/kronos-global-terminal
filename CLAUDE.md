@@ -1,9 +1,9 @@
-# CLAUDE.md — APEX Terminal
+# CLAUDE.md — KRONOS Global Terminal
 
 Guidance for AI agents working in this repo. Keep it current.
 
 ## What this is
-APEX is a high-density, real-time **trading / investment simulator** terminal.
+KRONOS Global Terminal is a high-density, real-time **trading / investment simulator** terminal.
 - **frontend/** — React 18 + TypeScript + Vite + Zustand + `lightweight-charts` (TradingView). Cyber-trading dark UI.
 - **backend/** — FastAPI + WebSocket. Streams quotes, serves candles / order book / macro data.
 

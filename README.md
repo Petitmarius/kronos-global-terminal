@@ -1,4 +1,4 @@
-# APEX — Terminal de Trading Temps Réel
+# KRONOS Global Terminal — Terminal de Trading Temps Réel
 
 Terminal financier haute densité, style *prop firm*, avec **simulateur d'investissement**.
 Prix de marché **réels** (Yahoo Finance, sans clé) + flux temps réel optionnel (Finnhub),
