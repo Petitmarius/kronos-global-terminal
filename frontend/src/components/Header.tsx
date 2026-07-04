@@ -35,8 +35,8 @@ export default function Header() {
     <>
       <header className={styles.header}>
         <div className={styles.brand}>
-          <span className={styles.logo}>AP<b>E</b>X</span>
-          <span className={styles.tag}>PROP&nbsp;TERMINAL</span>
+          <span className={styles.logo}>KR<b>O</b>NOS</span>
+          <span className={styles.tag}>GLOBAL&nbsp;TERMINAL</span>
         </div>
 
         <nav className={styles.nav}>
