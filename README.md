@@ -103,9 +103,10 @@ Tout fonctionne **sans aucune clé** (données réelles via Yahoo). Deux clés g
 
 ## Données — transparence
 
-Prix, variations %, OHLC et historique sont **réels** (Yahoo). En revanche le **carnet d'ordres**
-et le **spread** sont **simulés** (aucune source L2 gratuite n'existe) ; le carnet dérive du même
-spread que la grille pour rester cohérent. Aucun ordre n'est envoyé à un vrai broker — c'est un démo/simulateur.
+Prix, variations %, OHLC, historique, **52W haut/bas et volume** sont **réels** (Yahoo) ; la study
+**VOL** trace le vrai volume par barre (vide pour les instruments sans volume, ex. forex). En revanche
+le **carnet d'ordres** et le **spread** sont **simulés** (aucune source L2 gratuite n'existe) ; le carnet
+dérive du même spread que la grille pour rester cohérent. Aucun ordre n'est envoyé à un vrai broker — c'est un démo/simulateur.
 
 ## Structure
 

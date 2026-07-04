@@ -39,7 +39,7 @@ Or `./dev.ps1` (Windows) to launch both. Production check: `cd frontend && npm r
 
 ## Data caveats (be honest with the user)
 - The **order book is simulated** — no free L2 feed exists. Its bid/ask derive from `asset.stats.spread` so it stays consistent with the market-data grid. Volume/sizes are synthetic.
-- `stats.spread`, `volume`, 52W hi/lo for base assets are synthetic; price / change% / OHLC / history are real (Yahoo).
+- **52W hi/lo and volume are real** (Yahoo `fiftyTwoWeekHigh`/`fiftyTwoWeekLow` + `regularMarketVolume`, streamed in `_quote`); the **VOL** study plots real per-bar candle volume. Instruments Yahoo reports no volume for (e.g. FX spot) show `—` / an empty VOL study — never fabricated. Only `stats.spread` and the order book remain synthetic (no free L2 feed). price / change% / OHLC / history are real (Yahoo).
 
 ## Layout map
 - backend: `main.py` (REST + `/ws/prices` + `/api/macro/*`), `feeds.py` (poll/baseline/finnhub/simulator loops + `macro_loop`), `market.py` (state, synthetic candles, order book, register custom), `providers.py` (Yahoo candles/quote/search + `YAHOO_MAP`, `_YF_TF`, `yahoo_quote_raw`, `yahoo_candles_raw`), `macro.py` (board + risk score, correlations & RRG via numpy, FRED econ/curve/releases/calendar, Finnhub/Yahoo news; pure helpers tested in `tests/test_macro.py`), `globe.py` (world markets board + per-country detail via World Bank + news-derived geo hotspots; tested in `tests/test_globe.py`), `assets.py` (universe + `FINNHUB_MAP`), `hub.py`, `config.py`.
