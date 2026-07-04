@@ -41,14 +41,11 @@ class MarketState:
             span = abs(price) * 0.007 + 10 ** -a["digits"]
             hi = max(price, prev) + rng.uniform(0.2, 1.0) * span
             lo = min(price, prev) - rng.uniform(0.2, 1.0) * span
-            vol = float(rng.integers(40, 980)) * (1000 if a["cat"] in ("EQ", "CRYPTO") else 1)
             self.assets[sym] = {
                 **a,
                 "open": prev + rng.uniform(-0.3, 0.3) * span,
                 "high": hi, "low": lo,
-                "w52high": price * (1.18 + rng.uniform(0, 0.25)),
-                "w52low": price * (0.62 - rng.uniform(0, 0.18)),
-                "volume": vol,
+                "w52high": None, "w52low": None, "volume": None,
                 "spread": round(span * 0.05, max(1, a["digits"] - 1)),
                 "source": "sim",
                 "pc_real": False,   # True once a real previous close is known
@@ -59,11 +56,16 @@ class MarketState:
     def _quote(self, a: dict) -> dict:
         change = a["price"] - a["prev_close"]
         pct = change / a["prev_close"] * 100 if a["prev_close"] else 0.0
+        d = a["digits"]
+        w52h, w52l, vol = a.get("w52high"), a.get("w52low"), a.get("volume")
         return {
-            "symbol": a["symbol"], "price": round(a["price"], a["digits"]),
-            "change": round(change, a["digits"]), "pct": round(pct, 2),
+            "symbol": a["symbol"], "price": round(a["price"], d),
+            "change": round(change, d), "pct": round(pct, 2),
             "source": a["source"], "ts": int(time.time() * 1000),
             "usdRate": a.get("usd_rate", 1.0),
+            "w52High": round(w52h, d) if w52h is not None else None,
+            "w52Low": round(w52l, d) if w52l is not None else None,
+            "volume": round(vol) if vol is not None else None,
         }
 
     def asset_dict(self, a: dict) -> dict:
@@ -78,9 +80,9 @@ class MarketState:
                 "high": round(a["high"], a["digits"]),
                 "low": round(a["low"], a["digits"]),
                 "prevClose": round(a["prev_close"], a["digits"]),
-                "w52High": round(a["w52high"], a["digits"]),
-                "w52Low": round(a["w52low"], a["digits"]),
-                "volume": round(a["volume"]),
+                "w52High": round(a["w52high"], a["digits"]) if a.get("w52high") is not None else None,
+                "w52Low": round(a["w52low"], a["digits"]) if a.get("w52low") is not None else None,
+                "volume": round(a["volume"]) if a.get("volume") is not None else None,
                 "spread": a["spread"],
             },
         }
@@ -108,9 +110,11 @@ class MarketState:
         return self._quote(a)
 
     def apply_stats(self, symbol: str, price: float, prev_close: float,
-                    open_: float, high: float, low: float) -> dict | None:
-        """Set a full real quote (price + previous close + OHLC). Used for
-        instruments whose live source is a REST poll (indices, commodities)."""
+                    open_: float, high: float, low: float,
+                    w52high: float | None = None, w52low: float | None = None,
+                    volume: float | None = None) -> dict | None:
+        """Set a full real quote (price + previous close + OHLC + 52W/volume). Used
+        for instruments whose live source is a REST poll (indices, commodities)."""
         a = self.assets.get(symbol)
         if not a or price <= 0 or prev_close <= 0:
             return None
@@ -119,15 +123,23 @@ class MarketState:
         a["open"] = open_ if open_ and open_ > 0 else prev_close
         a["high"] = max(high or price, price)
         a["low"] = min(low or price, price)
+        if w52high is not None:
+            a["w52high"] = w52high
+        if w52low is not None:
+            a["w52low"] = w52low
+        if volume is not None:
+            a["volume"] = volume
         a["pc_real"] = True
         a["source"] = "live"
         return self._quote(a)
 
     def apply_baseline(self, symbol: str, price: float, prev_close: float,
-                       open_: float, high: float, low: float) -> dict | None:
-        """Refresh the real daily baseline (previous close / OHLC) without
-        overwriting a faster websocket price. If the symbol has no live price
-        yet, bootstrap it from this quote."""
+                       open_: float, high: float, low: float,
+                       w52high: float | None = None, w52low: float | None = None,
+                       volume: float | None = None) -> dict | None:
+        """Refresh the real daily baseline (previous close / OHLC / 52W / volume)
+        without overwriting a faster websocket price. If the symbol has no live
+        price yet, bootstrap it from this quote."""
         a = self.assets.get(symbol)
         if not a or prev_close <= 0:
             return None
@@ -138,6 +150,12 @@ class MarketState:
             a["high"] = max(a["high"], high, a["price"])
         if low:
             a["low"] = min(a["low"], low) if a["low"] else low
+        if w52high is not None:
+            a["w52high"] = w52high
+        if w52low is not None:
+            a["w52low"] = w52low
+        if volume is not None:
+            a["volume"] = volume
         a["pc_real"] = True
         if a["source"] == "sim" and price > 0:   # not yet streaming: bootstrap
             a["price"] = price
@@ -170,8 +188,8 @@ class MarketState:
             "open": quote.get("open") or prev,
             "high": max(quote.get("high") or price, price),
             "low": min(quote.get("low") or price, price),
-            "w52high": price * 1.3, "w52low": price * 0.72,
-            "volume": 0.0,
+            "w52high": quote.get("w52high"), "w52low": quote.get("w52low"),
+            "volume": quote.get("volume"),
             "spread": round(max(price * 5e-4, 10 ** -digits), max(1, digits - 1)),
             "source": "live", "pc_real": True, "custom": True,
             "currency": currency, "usd_rate": usd_rate,
