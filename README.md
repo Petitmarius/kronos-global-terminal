@@ -77,9 +77,11 @@ Tout fonctionne **sans aucune clé** (données réelles via Yahoo). Deux clés g
   **horloge des sessions** mondiales, et une couche **géopolitique** en bulles (survol → panneau
   de news du pays). Données réelles (Yahoo + World Bank) ; rien n'est simulé.
   - **Mode Portfolio** : superpose ton *book* sur la carte — pays teintés par l'**exposition
-    notionnelle**, **bulles** dimensionnées par le capital et colorées par le **P&L latent**, volet
-    gauche (allocation top-5, latent + réalisé par pays, poche « non-géographique » FX/crypto/matières),
-    et **clic → retour au terminal** sur le symbole. 100 % côté client, à partir de tes positions.
+    notionnelle**, **bulles** dimensionnées par le capital et colorées par le **P&L latent**.
+    **Volet gauche** : allocation top-5, barre du **P&L réalisé par pays** (%), latent + réalisé par
+    pays. **Volet droit « Performance & Asset Hub »** : courbe du **P&L réalisé sur 30 jours** et
+    **donut** des actifs non-géographiques (FX / crypto / matières) avec drill-down au survol (paires
+    et leur P&L). **Clic → retour au terminal**. 100 % côté client, à partir de tes positions.
 - **Watchlist** personnalisable : recherche n'importe quel marché (actions, indices, forex, crypto,
   matières premières), ajout/suppression, **sauvegardée** (localStorage).
 - **Graphique néon** TradingView · durées **1D · 1W · 1M · 3M · 6M · YTD · 1Y · 5Y · MAX**
