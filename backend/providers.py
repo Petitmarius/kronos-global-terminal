@@ -70,6 +70,7 @@ def _candles_from_chart(ysym: str, tf: str) -> list[dict] | None:
         q = res["indicators"]["quote"][0]
         closes = q["close"]
         opens = q.get("open", [])
+        vols = q.get("volume", [])
     except (KeyError, IndexError, TypeError):
         return None
 
@@ -80,7 +81,8 @@ def _candles_from_chart(ysym: str, tf: str) -> list[dict] | None:
             continue
         if first_idx is None:
             first_idx = i
-        points.append({"time": int(t), "value": round(float(c), 6)})
+        points.append({"time": int(t), "value": round(float(c), 6),
+                       "volume": int(vols[i]) if i < len(vols) and vols[i] is not None else None})
     if len(points) < 2:
         return None
 
@@ -140,6 +142,9 @@ def quote_from_meta(meta: dict) -> dict | None:
         "high": meta.get("regularMarketDayHigh"),
         "low": meta.get("regularMarketDayLow"),
         "currency": meta.get("currency"),
+        "w52high": meta.get("fiftyTwoWeekHigh"),
+        "w52low": meta.get("fiftyTwoWeekLow"),
+        "volume": meta.get("regularMarketVolume"),
     }
 
 
@@ -220,7 +225,9 @@ def yahoo_quote(symbol: str) -> dict | None:
 
     out = {"price": float(price), "prevClose": float(prev),
            "open": float(o) if o else None, "high": float(h) if h else None,
-           "low": float(l) if l else None, "currency": meta.get("currency")}
+           "low": float(l) if l else None, "currency": meta.get("currency"),
+           "w52high": meta.get("fiftyTwoWeekHigh"), "w52low": meta.get("fiftyTwoWeekLow"),
+           "volume": meta.get("regularMarketVolume")}
     _quote_cache[symbol] = (now, out)
     return out
 
