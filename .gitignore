@@ -21,3 +21,4 @@ frontend/node_modules/
 # internal docs — kept locally (AI agents), not published to GitHub
 /CLAUDE.md
 /doc.md
+/docs/superpowers/
