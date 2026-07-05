@@ -86,7 +86,7 @@ Tout fonctionne **sans aucune clé** (données réelles via Yahoo). Deux clés g
   matières premières), ajout/suppression, **sauvegardée** (localStorage).
 - **Graphique néon** TradingView · durées **1D · 1W · 1M · 3M · 6M · YTD · 1Y · 5Y · MAX**
   (l'axe colle toujours à la durée) · **performance de la période en %** affichée sur le graphe ·
-  studies **MA · BB · VOL · RSI · MACD**.
+  bascule **ligne / bougies** (OHLC réel Yahoo) · studies **MA · BB · VOL · RSI · MACD**.
 - **Carnet d'ordres** (L2 simulé, cohérent avec le spread affiché) + **ticket** :
   - **MARKET** (exécution immédiate), **LIMIT** / **STOP** (ordres en attente, onglet PENDING).
   - **Garde de marge** : un ordre dont la marge dépasse ton *free margin* est **bloqué**
