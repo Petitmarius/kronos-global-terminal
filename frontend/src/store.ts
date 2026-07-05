@@ -11,6 +11,7 @@ const LS_CUSTOM = 'apex.customs'
 const LS_SIM = 'apex.sim'
 const LS_VIEW = 'apex.view'
 const LS_CAPITAL = 'apex.capital'
+const LS_CHARTTYPE = 'apex.charttype'
 
 interface CustomMeta {
   symbol: string
@@ -49,6 +50,7 @@ const persistedWatchlist = loadLS<string[] | null>(LS_WL, null)
 const persistedCustoms = loadLS<Record<string, CustomMeta>>(LS_CUSTOM, {})
 const persistedSim = loadLS<SimState>(LS_SIM, { positions: [], history: [], orders: [], alerts: [], pending: [] })
 const persistedCapital = loadLS<number>(LS_CAPITAL, BALANCE)
+const persistedChartType = loadLS<'line' | 'candles'>(LS_CHARTTYPE, 'line')
 
 // A position is FX-converted only if it carries entryRate (opened after the FX
 // change). Pre-existing positions use rate 1 on both sides -> behave as before.
@@ -79,6 +81,8 @@ interface Store {
 
   view: 'TERMINAL' | 'MACRO' | 'GLOBAL'
   setView: (v: 'TERMINAL' | 'MACRO' | 'GLOBAL') => void
+  chartType: 'line' | 'candles'
+  setChartType: (t: 'line' | 'candles') => void
 
   selected: string
   timeframe: string
@@ -130,6 +134,7 @@ export const useStore = create<Store>((set) => ({
   connected: false,
 
   view: loadLS<'TERMINAL' | 'MACRO' | 'GLOBAL'>(LS_VIEW, 'TERMINAL'),
+  chartType: persistedChartType,
 
   selected: 'NAS100',
   timeframe: '1D',
@@ -252,6 +257,7 @@ export const useStore = create<Store>((set) => ({
   registerAsset: (asset) => set((s) => ({ assets: { ...s.assets, [asset.symbol]: asset } })),
   setConnected: (connected) => set({ connected }),
   setView: (view) => { saveLS(LS_VIEW, view); set({ view }) },
+  setChartType: (chartType) => { saveLS(LS_CHARTTYPE, chartType); set({ chartType }) },
   select: (selected) => set({ selected }),
   setTimeframe: (timeframe) => set({ timeframe }),
   toggleIndicator: (name) =>
