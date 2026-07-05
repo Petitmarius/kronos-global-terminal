@@ -3,7 +3,7 @@ import { useEffect, useState } from 'react'
 import { fetchMarketCap } from '../api'
 import { STUDIES, TIMEFRAMES } from '../constants'
 import { arrow, fmt, fmtCompact, fmtPct, fmtUsd, formatStamp, formatTime, signClass } from '../format'
-import { positionPnl, useStore } from '../store'
+import { computeAccount, positionPnl, useStore } from '../store'
 import PriceChart from './PriceChart'
 import styles from './CenterPanel.module.css'
 
@@ -32,10 +32,12 @@ export default function CenterPanel() {
   const addAlert = useStore((s) => s.addAlert)
   const removeAlert = useStore((s) => s.removeAlert)
   const select = useStore((s) => s.select)
+  const capital = useStore((s) => s.capital)
 
   const [tab, setTab] = useState<(typeof TABS)[number]>('POSITIONS')
   const [alertPrice, setAlertPrice] = useState('')
   const [mktCap, setMktCap] = useState<number | null>(null)
+  const [expanded, setExpanded] = useState(false)
 
   useEffect(() => {
     setMktCap(null)
@@ -43,6 +45,13 @@ export default function CenterPanel() {
     void fetchMarketCap(selected).then((r) => { if (alive) setMktCap(r?.marketCap ?? null) })
     return () => { alive = false }
   }, [selected])
+
+  useEffect(() => {
+    if (!expanded) return
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setExpanded(false) }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [expanded])
 
   if (!asset) {
     return (
@@ -66,6 +75,7 @@ export default function CenterPanel() {
   ]
 
   const activeAlerts = alerts.filter((a) => a.active).length
+  const acct = computeAccount(positions, assets, history, capital)
   const submitAlert = () => {
     const p = parseFloat(alertPrice)
     if (Number.isNaN(p) || p <= 0) return
@@ -134,8 +144,17 @@ export default function CenterPanel() {
         </div>
       </div>
 
-      {/* activity panel */}
-      <div className={`panel ${styles.posPanel}`}>
+      {/* activity panel — inline, or maximized overlay */}
+      {expanded && <div className={styles.posBackdrop} onClick={() => setExpanded(false)} />}
+      <div className={`panel ${expanded ? styles.posOverlay : styles.posPanel}`}>
+        {expanded && (
+          <div className={styles.posAcct}>
+            <span>EQUITY <b>{fmtUsd(acct.equity)}</b></span>
+            <span>P&amp;L TODAY <b className={signClass(acct.pnl)}>{fmtUsd(acct.pnl)}</b></span>
+            <span>MARGIN <b>{fmtUsd(acct.margin)}</b></span>
+            <span>FREE MARGIN <b>{fmtUsd(acct.free)}</b></span>
+          </div>
+        )}
         <div className={styles.tabs}>
           {TABS.map((t) => {
             const badge = t === 'POSITIONS' ? positions.length : t === 'PENDING' ? pending.length : t === 'TRADE LOG' ? history.length : t === 'ALERTS' ? activeAlerts : 0
@@ -153,6 +172,7 @@ export default function CenterPanel() {
           {(tab === 'TRADE LOG' || tab === 'ORDER HISTORY') && history.length + orders.length > 0 && (
             <button className={styles.tabAction} onClick={clearHistory}>CLEAR</button>
           )}
+          <button className={styles.tabExpand} onClick={() => setExpanded((v) => !v)} title={expanded ? 'Minimize (Esc)' : 'Expand'}>{expanded ? '⤡' : '⤢'}</button>
         </div>
 
         <div className={`scroll ${styles.posBody}`}>

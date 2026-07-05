@@ -59,6 +59,14 @@
 .tabAction { background: transparent; border: 1px solid var(--border-2); color: var(--muted); font-size: 9px; letter-spacing: 1px; padding: 4px 9px; border-radius: 4px; margin: 4px 8px 4px 0; }
 .tabAction:hover { color: var(--red); border-color: var(--red); }
 
+/* maximize the activity panel into an overlay */
+.tabExpand { background: transparent; border: 1px solid var(--border-2); color: var(--muted); font-size: 12px; line-height: 1; padding: 4px 9px; border-radius: 4px; margin: 4px 8px 4px 0; cursor: pointer; }
+.tabExpand:hover { color: var(--amber); border-color: var(--amber); }
+.posBackdrop { position: fixed; inset: 0; z-index: 1500; background: rgba(0, 0, 0, .55); }
+.posOverlay { position: fixed; z-index: 1501; top: 50%; left: 50%; transform: translate(-50%, -50%); width: min(1100px, 94vw); height: min(82vh, 900px); padding: 0; display: flex; flex-direction: column; overflow: hidden; box-shadow: 0 24px 70px rgba(0, 0, 0, .65); }
+.posAcct { flex: 0 0 auto; display: flex; flex-wrap: wrap; gap: 22px; padding: 11px 14px; border-bottom: 1px solid var(--border); font: 700 11px/1 'JetBrains Mono', monospace; color: var(--gray); }
+.posAcct b { color: var(--text); margin-left: 6px; font-variant-numeric: tabular-nums; }
+
 /* trade-log close-reason badges */
 .rSL { color: var(--red); border: 1px solid var(--red-d); background: rgba(255, 23, 68, .08); padding: 1px 6px; border-radius: 3px; font-size: 9.5px; font-weight: 700; }
 .rTP { color: var(--green); border: 1px solid var(--green-d); background: rgba(0, 230, 118, .08); padding: 1px 6px; border-radius: 3px; font-size: 9.5px; font-weight: 700; }
