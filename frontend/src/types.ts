@@ -5,9 +5,9 @@ export interface Stats {
   high: number
   low: number
   prevClose: number
-  w52High: number
-  w52Low: number
-  volume: number
+  w52High: number | null
+  w52Low: number | null
+  volume: number | null
   spread: number
 }
 
@@ -35,11 +35,15 @@ export interface Quote {
   source: Source
   ts: number
   usdRate?: number
+  w52High?: number | null
+  w52Low?: number | null
+  volume?: number | null
 }
 
 export interface CandlePoint {
   time: number
   value: number
+  volume?: number | null
 }
 
 export interface Candles {

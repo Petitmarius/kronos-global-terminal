@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 
-import { fetchGlobeGeo, fetchGlobeMacroLayer, fetchGlobeMarkets } from '../../api'
+import { addAsset, fetchGlobeGeo, fetchGlobeMacroLayer, fetchGlobeMarkets } from '../../api'
 import { buildExposure } from '../../geo/exposure'
 import type { MapMetric } from '../../geo/scales'
 import { useStore } from '../../store'
@@ -34,6 +34,7 @@ export default function GlobalMap() {
   const customs = useStore((s) => s.customs)
   const select = useStore((s) => s.select)
   const setView = useStore((s) => s.setView)
+  const registerAsset = useStore((s) => s.registerAsset)
 
   const exposure = useMemo(() => {
     const indexMap: Record<string, string> = {}
@@ -51,6 +52,14 @@ export default function GlobalMap() {
   }
   const pick = (symbol: string) => { select(symbol); setView('TERMINAL') }
   const exposureClick = (iso: string) => { const c = exposure.perCountry[iso]; if (c?.topSymbol) pick(c.topSymbol) }
+  // country-panel index title -> Terminal. Base indices that overlap a tradable
+  // symbol select it directly; the other countries' indices are added on the fly.
+  const INDEX_LOCAL: Record<string, string> = { '^GSPC': 'SPX500', '^GDAXI': 'GER40', '^FTSE': 'UK100' }
+  const pickIndex = (yahoo: string, name: string) => {
+    const local = INDEX_LOCAL[yahoo]
+    if (local) { pick(local); return }
+    void addAsset(yahoo, `${name} Index`, 'INDEX').then((a) => { if (a) { registerAsset(a); pick(a.symbol) } })
+  }
 
   useEffect(() => {
     let alive = true
@@ -77,7 +86,7 @@ export default function GlobalMap() {
         {!portfolio && <MapLegend metric={metric} onMetric={setMetric} />}
         {portfolio && <PortfolioPanel exposure={exposure} onPick={pick} onClose={() => togglePortfolio(false)} />}
         {portfolio && <AnalyticsPanel exposure={exposure} history={history} onPick={pick} />}
-        {!portfolio && selected && <CountryPanel iso={selected} onClose={() => setSelected(null)} />}
+        {!portfolio && selected && <CountryPanel iso={selected} onClose={() => setSelected(null)} onPickIndex={pickIndex} />}
         {showGeo && geoSel && <GeoPanel point={geoSel} onClose={() => setGeoSel(null)} />}
       </div>
       <SessionClock />

@@ -89,15 +89,10 @@ export function macd(pts: CandlePoint[], fast = 12, slow = 26, signalN = 9, up =
   return { macdLine, signalLine, hist }
 }
 
-// synthetic volume bars derived from bar-to-bar movement
+// real per-bar volume from the candle feed (empty for instruments Yahoo has no volume for)
 export function volume(pts: CandlePoint[], up = '#00E676', down = '#FF1744'): HistData[] {
   return pts.map((p, i) => {
     const prev = i > 0 ? pts[i - 1].value : p.value
-    const move = Math.abs(p.value - prev)
-    return {
-      time: p.time,
-      value: move * 800 + 40 + (i % 7) * 12,
-      color: p.value >= prev ? up : down,
-    }
+    return { time: p.time, value: p.volume ?? 0, color: p.value >= prev ? up : down }
   })
 }

@@ -5,7 +5,9 @@ import { fetchGlobeCountry } from '../../api'
 import type { CountryDetail } from '../../types'
 import styles from './GlobalMap.module.css'
 
-export default function CountryPanel({ iso, onClose }: { iso: string; onClose: () => void }) {
+export default function CountryPanel(
+  { iso, onClose, onPickIndex }: { iso: string; onClose: () => void; onPickIndex?: (yahoo: string, name: string) => void },
+) {
   const [d, setD] = useState<CountryDetail | null>(null)
   const [tip, setTip] = useState<{ x: number; y: number; v: number } | null>(null)
   const ref = useRef<HTMLDivElement>(null)
@@ -63,12 +65,17 @@ export default function CountryPanel({ iso, onClose }: { iso: string; onClose: (
       </div>
       {!d ? <div className={styles.empty}>loading…</div> : (
         <div className={styles.cpBody}>
-          <div className={styles.cpIndex}>
+          <div
+            className={`${styles.cpIndex} ${onPickIndex ? styles.cpIndexClickable : ''}`}
+            onClick={onPickIndex ? () => onPickIndex(d.index.symbol, d.name) : undefined}
+            title={onPickIndex ? 'Open this index in the Terminal' : undefined}
+          >
             <span className={styles.cpIndexSym}>{d.index.symbol}</span>
             <span className={styles.cpIndexLvl}>{d.index.level ?? '—'}</span>
             <span className={d.index.pct != null && d.index.pct >= 0 ? styles.pos : styles.neg}>
               {d.index.pct != null ? `${d.index.pct >= 0 ? '+' : ''}${d.index.pct}%` : ''}
             </span>
+            {onPickIndex && <span className={styles.cpIndexGo}>↗ Terminal</span>}
           </div>
           <div className={styles.cpChart}>
             <div ref={ref} className={styles.cpChartInner} />

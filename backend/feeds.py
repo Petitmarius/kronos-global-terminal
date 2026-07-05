@@ -36,7 +36,8 @@ async def poll_loop() -> None:
                 q = await asyncio.to_thread(providers.yahoo_quote, sym)
                 if q:
                     r = MARKET.apply_stats(sym, q["price"], q["prevClose"],
-                                           q["open"], q["high"], q["low"])
+                                           q["open"], q["high"], q["low"],
+                                           q.get("w52high"), q.get("w52low"), q.get("volume"))
                     if r:
                         updated.append(r)
             except Exception as exc:  # noqa: BLE001
@@ -58,7 +59,8 @@ async def baseline_loop() -> None:
                 q = await asyncio.to_thread(providers.yahoo_quote, sym)
                 if q:
                     r = MARKET.apply_baseline(sym, q["price"], q["prevClose"],
-                                              q["open"], q["high"], q["low"])
+                                              q["open"], q["high"], q["low"],
+                                              q.get("w52high"), q.get("w52low"), q.get("volume"))
                     if r:
                         updated.append(r)
             except Exception as exc:  # noqa: BLE001

@@ -49,6 +49,11 @@
 .cpClose:hover { color: #eef3f8; }
 .cpBody { flex: 1; min-height: 0; overflow-y: auto; padding: 12px; }
 .cpIndex { display: flex; align-items: baseline; gap: 8px; }
+.cpIndexClickable { cursor: pointer; border-radius: 6px; margin: -2px -4px; padding: 2px 4px; transition: background .12s; }
+.cpIndexClickable:hover { background: rgba(66,165,245,.10); }
+.cpIndexClickable:hover .cpIndexSym { color: #42A5F5; }
+.cpIndexGo { margin-left: auto; align-self: center; font: 700 8px/1 'JetBrains Mono', monospace; letter-spacing: .5px; color: var(--dim); }
+.cpIndexClickable:hover .cpIndexGo { color: #42A5F5; }
 .cpIndexSym { font: 700 10px/1 'JetBrains Mono', monospace; color: var(--dim); }
 .cpIndexLvl { font: 800 20px/1 'JetBrains Mono', monospace; color: #eef3f8; }
 .cpChart { height: 90px; margin: 8px 0; position: relative; }
