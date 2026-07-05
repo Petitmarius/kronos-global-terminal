@@ -9,7 +9,7 @@ import styles from './GlobalMap.module.css'
 
 function RealizedChart({ history }: { history: ClosedTrade[] }) {
   const ref = useRef<HTMLDivElement>(null)
-  const [tip, setTip] = useState<{ x: number; y: number; v: number } | null>(null)
+  const [tip, setTip] = useState<{ x: number; y: number; v: number; t: number } | null>(null)
   const curve = realizedCurve(history)
 
   useEffect(() => {
@@ -19,7 +19,7 @@ function RealizedChart({ history }: { history: ClosedTrade[] }) {
     const chart: IChartApi = createChart(ref.current, {
       layout: { background: { type: ColorType.Solid, color: 'transparent' }, textColor: '#4A5663', fontFamily: "'JetBrains Mono', monospace", fontSize: 10, attributionLogo: false },
       grid: { vertLines: { visible: false }, horzLines: { visible: false } },
-      rightPriceScale: { visible: false }, timeScale: { visible: false },
+      rightPriceScale: { visible: false }, timeScale: { visible: true, borderVisible: false, timeVisible: false, secondsVisible: false },
       crosshair: {
         horzLine: { visible: false, labelVisible: false },
         vertLine: { visible: true, color: 'rgba(120,144,163,.5)', width: 1, style: LineStyle.Dotted, labelVisible: false },
@@ -32,8 +32,8 @@ function RealizedChart({ history }: { history: ClosedTrade[] }) {
     chart.subscribeCrosshairMove((param) => {
       const pt = param.point
       const pd = param.seriesData.get(area) as { value?: number } | undefined
-      if (!pt || !pd || pd.value == null) { setTip(null); return }
-      setTip({ x: pt.x as number, y: pt.y as number, v: pd.value })
+      if (!pt || !pd || pd.value == null || param.time == null) { setTip(null); return }
+      setTip({ x: pt.x as number, y: pt.y as number, v: pd.value, t: param.time as number })
     })
     return () => { chart.remove() }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -44,7 +44,11 @@ function RealizedChart({ history }: { history: ClosedTrade[] }) {
   return (
     <div className={styles.rpChart}>
       <div ref={ref} className={styles.rpChartInner} />
-      {tip && <div className={styles.chartTip} style={{ left: tip.x, top: tip.y }}>{tip.v >= 0 ? '+' : '−'}{fmtUsd(Math.abs(tip.v))}</div>}
+      {tip && (
+        <div className={styles.chartTip} style={{ left: tip.x, top: tip.y }}>
+          {new Date(tip.t * 1000).toLocaleDateString('en-GB', { day: '2-digit', month: 'short' })} · {tip.v >= 0 ? '+' : '−'}{fmtUsd(Math.abs(tip.v))}
+        </div>
+      )}
     </div>
   )
 }
