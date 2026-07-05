@@ -70,6 +70,8 @@ def _candles_from_chart(ysym: str, tf: str) -> list[dict] | None:
         q = res["indicators"]["quote"][0]
         closes = q["close"]
         opens = q.get("open", [])
+        highs = q.get("high", [])
+        lows = q.get("low", [])
         vols = q.get("volume", [])
     except (KeyError, IndexError, TypeError):
         return None
@@ -81,8 +83,13 @@ def _candles_from_chart(ysym: str, tf: str) -> list[dict] | None:
             continue
         if first_idx is None:
             first_idx = i
-        points.append({"time": int(t), "value": round(float(c), 6),
-                       "volume": int(vols[i]) if i < len(vols) and vols[i] is not None else None})
+        points.append({
+            "time": int(t), "value": round(float(c), 6),
+            "open": round(float(opens[i]), 6) if i < len(opens) and opens[i] is not None else None,
+            "high": round(float(highs[i]), 6) if i < len(highs) and highs[i] is not None else None,
+            "low": round(float(lows[i]), 6) if i < len(lows) and lows[i] is not None else None,
+            "volume": int(vols[i]) if i < len(vols) and vols[i] is not None else None,
+        })
     if len(points) < 2:
         return None
 

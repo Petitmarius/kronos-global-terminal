@@ -44,6 +44,9 @@ export interface CandlePoint {
   time: number
   value: number
   volume?: number | null
+  open?: number | null
+  high?: number | null
+  low?: number | null
 }
 
 export interface Candles {

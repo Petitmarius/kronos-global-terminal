@@ -20,6 +20,8 @@ export default function CenterPanel() {
   const indicators = useStore((s) => s.indicators)
   const setTimeframe = useStore((s) => s.setTimeframe)
   const toggleIndicator = useStore((s) => s.toggleIndicator)
+  const chartType = useStore((s) => s.chartType)
+  const setChartType = useStore((s) => s.setChartType)
   const positions = useStore((s) => s.positions)
   const pending = useStore((s) => s.pending)
   const history = useStore((s) => s.history)
@@ -135,6 +137,16 @@ export default function CenterPanel() {
             <div className="seg">
               {STUDIES.map((s) => (
                 <button key={s} className={indicators.has(s) ? 'on' : ''} onClick={() => toggleIndicator(s)}>{s}</button>
+              ))}
+            </div>
+          </div>
+          <div className={styles.tgroup}>
+            <span className={styles.tlabel}>CHART</span>
+            <div className="seg">
+              {(['line', 'candles'] as const).map((t) => (
+                <button key={t} className={chartType === t ? 'on' : ''} onClick={() => setChartType(t)}>
+                  {t === 'line' ? 'LINE' : 'CANDLES'}
+                </button>
               ))}
             </div>
           </div>
