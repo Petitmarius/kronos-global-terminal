@@ -46,6 +46,7 @@ export default function PriceChart() {
   const selected = useStore((s) => s.selected)
   const timeframe = useStore((s) => s.timeframe)
   const indicators = useStore((s) => s.indicators)
+  const chartType = useStore((s) => s.chartType)
   const digits = useStore((s) => s.assets[s.selected]?.digits ?? 2)
   const price = useStore((s) => s.assets[s.selected]?.price)
   const pct = useStore((s) => s.assets[s.selected]?.pct ?? 0)
@@ -54,7 +55,9 @@ export default function PriceChart() {
   const rsiRef = useRef<HTMLDivElement>(null)
   const macdRef = useRef<HTMLDivElement>(null)
 
-  const areaRef = useRef<ISeriesApi<'Area'> | null>(null)
+  const seriesRef = useRef<ISeriesApi<'Area'> | ISeriesApi<'Candlestick'> | null>(null)
+  const chartTypeRef = useRef<'line' | 'candles'>(chartType)
+  const lastBarRef = useRef<{ open: number; high: number; low: number } | null>(null)
   const lastTimeRef = useRef<number | null>(null)
   const firstCloseRef = useRef<number | null>(null)
   const upRef = useRef(true)
@@ -74,9 +77,11 @@ export default function PriceChart() {
       const pts = data.points
       const up = (useStore.getState().assets[selected]?.pct ?? 0) >= 0
       upRef.current = up
+      chartTypeRef.current = chartType
 
       const hasVol = pts.some((p) => (p.volume ?? 0) > 0)
       const volOn = indicators.has('VOL') && hasVol
+      const useCandles = chartType === 'candles' && pts.some((p) => p.open != null)
       const chart = createChart(mainRef.current, {
         ...baseLayout,
         rightPriceScale: { borderVisible: false, scaleMargins: { top: 0.12, bottom: volOn ? 0.24 : 0.08 } },
@@ -84,16 +89,27 @@ export default function PriceChart() {
       })
       charts.push(chart)
 
-      const area = chart.addAreaSeries({
-        ...neon(up),
-        lineWidth: 2,
-        priceLineVisible: false,
-        lastValueVisible: true,
-        crosshairMarkerRadius: 3,
-        priceFormat: { type: 'price', precision: digits, minMove: 10 ** -digits },
-      })
-      area.setData(pts.map((p) => ({ time: T(p.time), value: p.value })))
-      areaRef.current = area
+      if (useCandles) {
+        const candle = chart.addCandlestickSeries({
+          upColor: COLORS.green, downColor: COLORS.red, borderVisible: false,
+          wickUpColor: COLORS.green, wickDownColor: COLORS.red,
+          priceFormat: { type: 'price', precision: digits, minMove: 10 ** -digits },
+        })
+        candle.setData(pts.map((p) => ({
+          time: T(p.time), open: p.open ?? p.value, high: p.high ?? p.value, low: p.low ?? p.value, close: p.value,
+        })))
+        seriesRef.current = candle
+        const last = pts.at(-1)
+        lastBarRef.current = last ? { open: last.open ?? last.value, high: last.high ?? last.value, low: last.low ?? last.value } : null
+      } else {
+        const area = chart.addAreaSeries({
+          ...neon(up), lineWidth: 2, priceLineVisible: false, lastValueVisible: true,
+          crosshairMarkerRadius: 3, priceFormat: { type: 'price', precision: digits, minMove: 10 ** -digits },
+        })
+        area.setData(pts.map((p) => ({ time: T(p.time), value: p.value })))
+        seriesRef.current = area
+        lastBarRef.current = null
+      }
       lastTimeRef.current = pts.at(-1)?.time ?? null
       firstCloseRef.current = pts[0]?.value ?? null
       const cur = useStore.getState().assets[selected]?.price ?? pts.at(-1)?.value ?? 0
@@ -144,25 +160,32 @@ export default function PriceChart() {
     return () => {
       cancelled = true
       charts.forEach((c) => c.remove())
-      areaRef.current = null
+      seriesRef.current = null
       lastTimeRef.current = null
     }
-    // Rebuilds only on instrument / timeframe / studies change — NOT on every
-    // price tick (live updates are handled by the effect below).
-  }, [selected, timeframe, indicators, digits])
+    // Rebuilds only on instrument / timeframe / studies / chart-type change — NOT on
+    // every price tick (live updates are handled by the effect below).
+  }, [selected, timeframe, indicators, digits, chartType])
 
-  // live tick: nudge the right edge of the price line
+  // live tick: nudge the right edge of the current bar (line value, or candle OHLC)
   useEffect(() => {
-    const area = areaRef.current
+    const series = seriesRef.current
     const t = lastTimeRef.current
-    if (area && t != null && price != null) {
-      area.update({ time: T(t), value: price })
-      if (firstCloseRef.current) setRangePerf(((price - firstCloseRef.current) / firstCloseRef.current) * 100)
-      const up = pct >= 0
-      if (up !== upRef.current) {
-        upRef.current = up
-        area.applyOptions(neon(up))
+    if (series && t != null && price != null) {
+      if (chartTypeRef.current === 'candles' && lastBarRef.current) {
+        const b = lastBarRef.current
+        b.high = Math.max(b.high, price)
+        b.low = Math.min(b.low, price)
+        ;(series as ISeriesApi<'Candlestick'>).update({ time: T(t), open: b.open, high: b.high, low: b.low, close: price })
+      } else {
+        ;(series as ISeriesApi<'Area'>).update({ time: T(t), value: price })
+        const up = pct >= 0
+        if (up !== upRef.current) {
+          upRef.current = up
+          ;(series as ISeriesApi<'Area'>).applyOptions(neon(up))
+        }
       }
+      if (firstCloseRef.current) setRangePerf(((price - firstCloseRef.current) / firstCloseRef.current) * 100)
     }
   }, [price, pct])
 
