@@ -12,7 +12,7 @@ Start-Process powershell -ArgumentList @(
 )
 
 Write-Host ""
-Write-Host "  APEX terminal starting..." -ForegroundColor Green
+Write-Host "  KRONOS terminal starting..." -ForegroundColor Green
 Write-Host "  Backend : http://localhost:8000"
 Write-Host "  Frontend: http://localhost:5173"
 Write-Host ""
