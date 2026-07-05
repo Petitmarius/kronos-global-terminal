@@ -592,22 +592,21 @@ _MKTCAP_TTL = 3600.0
 
 
 def market_cap(symbol: str) -> dict:
-    """Market capitalization in absolute currency units for an equity, via
-    Finnhub `stock/profile2` (marketCapitalization is in millions). Non-equities
-    (indices, FX, crypto, commodities) resolve to None."""
+    """Market capitalization (absolute currency units) for a **US-listed** equity,
+    via Finnhub `stock/profile2` (marketCapitalization is in millions). Everything
+    else resolves to None: Finnhub's free profile2 only prices US tickers, so a bare
+    foreign display ticker (LVMH "MC") would otherwise collide with a different US
+    stock (Moelis "MC"). Foreign equities / indices / FX / crypto / commodities → None."""
     now = time.time()
     if symbol in _mktcap_cache and now - _mktcap_cache[symbol][0] < _MKTCAP_TTL:
         return _mktcap_cache[symbol][1]
     out = {"marketCap": None, "currency": None}
-    candidates = [symbol]
-    ysym = providers.YAHOO_MAP.get(symbol)
-    if ysym and ysym != symbol:
-        candidates.append(ysym)
-    for sym in candidates:
-        data = _finnhub_get("stock/profile2", {"symbol": sym})
+    ysym = providers.YAHOO_MAP.get(symbol, symbol)
+    us_listed = not any(ch in ysym for ch in (".", "^", "=", "-"))  # exchange suffix / index / FX / crypto
+    if us_listed:
+        data = _finnhub_get("stock/profile2", {"symbol": symbol})
         if isinstance(data, dict) and data.get("marketCapitalization"):
             out = {"marketCap": round(float(data["marketCapitalization"]) * 1e6),
                    "currency": data.get("currency")}
-            break
     _mktcap_cache[symbol] = (now, out)
     return out
