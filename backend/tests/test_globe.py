@@ -142,3 +142,51 @@ def test_build_country_fetches_its_three_quotes_concurrently(monkeypatch):
     t0 = time.perf_counter()
     globe.build_country("FR")
     assert time.perf_counter() - t0 < 0.09, "the three fetches still run one after another"
+
+
+# --- Country FX row ---------------------------------------------------------
+
+def _stub_country(monkeypatch, fx_price, fx_pct):
+    monkeypatch.setattr(globe.providers, "yahoo_quote_raw",
+                        lambda sym: {"price": fx_price if sym.endswith("=X") else 100.0,
+                                     "prevClose": 1.0,
+                                     "pct": fx_pct if sym.endswith("=X") else 0.5})
+    monkeypatch.setattr(globe.providers, "yahoo_candles_raw", lambda *a, **k: {"points": []})
+    monkeypatch.setattr(globe, "world_bank_macro", lambda iso: {"available": False})
+    monkeypatch.setattr(globe.macro, "fetch_news", lambda: {"items": []})
+    globe._country_cache.clear()
+
+
+def test_country_fx_is_reported_as_quoted(monkeypatch):
+    """Inverting the rate while still printing the pair's own name rendered
+    "USDJPY · 0.0063" -- that is the JPYUSD rate -- beside USDJPY's own
+    percentage: label, value and sign each disagreeing, on the 26 USD-quoted
+    countries. The Terminal shows the pair the same way the panel now does, so
+    the click-through lands on what was on screen."""
+    _stub_country(monkeypatch, 159.103, -0.06)
+    fx = globe.build_country("JP")["fx"]
+    assert fx["pair"] == "USDJPY=X"
+    assert fx["level"] == 159.103, f"USDJPY rendered as {fx['level']}"
+    assert fx["pct"] == -0.06
+
+
+def test_country_fx_untouched_for_a_usd_quoted_pair(monkeypatch):
+    _stub_country(monkeypatch, 1.1669, -0.05)
+    fx = globe.build_country("FR")["fx"]
+    assert fx["pair"] == "EURUSD=X" and fx["level"] == 1.1669
+
+
+def test_country_without_an_fx_pair_reports_none(monkeypatch):
+    _stub_country(monkeypatch, 1.0, 0.0)
+    assert globe.build_country("US")["fx"] is None, "the US has no pair vs itself"
+
+
+def test_country_fx_absent_when_the_pair_cannot_be_priced(monkeypatch):
+    monkeypatch.setattr(globe.providers, "yahoo_quote_raw",
+                        lambda sym: None if sym.endswith("=X") else
+                        {"price": 100.0, "prevClose": 99.0, "pct": 1.0})
+    monkeypatch.setattr(globe.providers, "yahoo_candles_raw", lambda *a, **k: {"points": []})
+    monkeypatch.setattr(globe, "world_bank_macro", lambda iso: {"available": False})
+    monkeypatch.setattr(globe.macro, "fetch_news", lambda: {"items": []})
+    globe._country_cache.clear()
+    assert globe.build_country("JP")["fx"] is None, "never a fabricated rate"

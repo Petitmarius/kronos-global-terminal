@@ -59,7 +59,14 @@
 .cpChart { height: 90px; margin: 8px 0; position: relative; }
 .cpChartInner { position: absolute; inset: 0; }
 .chartTip { position: absolute; transform: translate(-50%, -140%); background: rgba(12,17,22,.92); border: 1px solid var(--border); border-radius: 4px; padding: 2px 6px; font: 800 10px/1 'JetBrains Mono', monospace; color: #eef3f8; pointer-events: none; white-space: nowrap; z-index: 5; }
-.cpFx { font: 700 11px/1 'JetBrains Mono', monospace; color: #cfd8e3; margin-bottom: 4px; }
+.cpFx { display: flex; align-items: baseline; gap: 6px; font: 700 11px/1 'JetBrains Mono', monospace; color: #cfd8e3; margin-bottom: 4px; }
+/* same click-through affordance as the index row above it */
+.cpFxSym { font-weight: 800; }
+.cpFxClickable { cursor: pointer; border-radius: 6px; margin: -2px -4px 2px; padding: 2px 4px; transition: background .12s; }
+.cpFxClickable:hover { background: rgba(66,165,245,.10); }
+.cpFxClickable:hover .cpFxSym { color: #42A5F5; }
+.cpFxGo { margin-left: auto; align-self: center; font: 700 8px/1 'JetBrains Mono', monospace; letter-spacing: .5px; color: var(--dim); }
+.cpFxClickable:hover .cpFxGo { color: #42A5F5; }
 .cpSection { font: 700 9px/1 'JetBrains Mono', monospace; letter-spacing: 1.5px; color: var(--dim); margin: 14px 0 8px; border-bottom: 1px solid var(--border); padding-bottom: 4px; }
 .cpMacroRow { display: flex; justify-content: space-between; font: 700 11px/1.8 'JetBrains Mono', monospace; color: #cfd8e3; }
 .cpNews { display: block; font: 600 11px/1.35 'JetBrains Mono', monospace; color: #cfd8e3; text-decoration: none; padding: 6px 0; border-bottom: 1px solid rgba(96,125,139,.12); }

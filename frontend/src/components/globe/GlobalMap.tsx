@@ -73,6 +73,19 @@ export default function GlobalMap() {
     // index is re-registered on the next reload instead of leaving a dead row.
     void addAsset(yahoo, `${name} Index`, 'INDEX').then((a) => { if (a) { addToWatchlist(a, yahoo); setView('TERMINAL') } })
   }
+  // The five pairs already in the tradable universe; every other country's pair
+  // is registered on the fly, exactly like its index.
+  const FX_LOCAL: Record<string, string> = {
+    'EURUSD=X': 'EURUSD', 'GBPUSD=X': 'GBPUSD', 'USDJPY=X': 'USDJPY',
+    'AUDUSD=X': 'AUDUSD', 'USDCAD=X': 'USDCAD',
+  }
+  const pickFx = (yahoo: string) => {
+    const local = FX_LOCAL[yahoo]
+    if (local) { pick(local); return }
+    const pair = yahoo.replace('=X', '')
+    void addAsset(yahoo, `${pair.slice(0, 3)} / ${pair.slice(3)}`, 'FX')
+      .then((a) => { if (a) { addToWatchlist(a, yahoo); setView('TERMINAL') } })
+  }
 
   useEffect(() => {
     let alive = true
@@ -103,7 +116,7 @@ export default function GlobalMap() {
           <CountryPositionsModal iso={expoSel} name={isoName(expoSel)} indexMap={indexMap}
             onPick={pick} onClose={() => setExpoSel(null)} />
         )}
-        {!portfolio && selected && <CountryPanel iso={selected} onClose={() => setSelected(null)} onPickIndex={pickIndex} />}
+        {!portfolio && selected && <CountryPanel iso={selected} onClose={() => setSelected(null)} onPickIndex={pickIndex} onPickFx={pickFx} />}
         {showGeo && geoSel && <GeoPanel point={geoSel} onClose={() => setGeoSel(null)} />}
       </div>
       <SessionClock />

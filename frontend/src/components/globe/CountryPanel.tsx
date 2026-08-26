@@ -6,7 +6,7 @@ import type { CountryDetail } from '../../types'
 import styles from './GlobalMap.module.css'
 
 export default function CountryPanel(
-  { iso, onClose, onPickIndex }: { iso: string; onClose: () => void; onPickIndex?: (yahoo: string, name: string) => void },
+  { iso, onClose, onPickIndex, onPickFx }: { iso: string; onClose: () => void; onPickIndex?: (yahoo: string, name: string) => void; onPickFx?: (yahoo: string) => void },
 ) {
   const [d, setD] = useState<CountryDetail | null>(null)
   const [tip, setTip] = useState<{ x: number; y: number; v: number } | null>(null)
@@ -53,6 +53,7 @@ export default function CountryPanel(
   const rowStr = (label: string, s: string | null) => (
     <div className={styles.cpMacroRow}><span>{label}</span><b>{s ?? '—'}</b></div>
   )
+  const fxPair = d?.fx?.pair ?? null
   const fmtPop = (v: number | null | undefined) => (v != null ? `${(v / 1e6).toFixed(1)} M` : null)
   const fmtGdp = (v: number | null | undefined) =>
     v != null ? (v >= 1e12 ? `$${(v / 1e12).toFixed(2)} T` : `$${(v / 1e9).toFixed(0)} B`) : null
@@ -86,7 +87,17 @@ export default function CountryPanel(
               : <div className={styles.empty}>NO CHART DATA</div>}
             {tip && <div className={styles.chartTip} style={{ left: tip.x, top: tip.y }}>{tip.v.toFixed(2)}</div>}
           </div>
-          {d.fx && <div className={styles.cpFx}>FX {d.fx.pair.replace('=X', '')} · {d.fx.level} <span className={d.fx.pct >= 0 ? styles.pos : styles.neg}>{d.fx.pct >= 0 ? '+' : ''}{d.fx.pct}%</span></div>}
+          {d.fx && (
+            <div
+              className={`${styles.cpFx} ${onPickFx && fxPair ? styles.cpFxClickable : ''}`}
+              onClick={onPickFx && fxPair ? () => onPickFx(fxPair) : undefined}
+              title={onPickFx && fxPair ? 'Open this pair in the Terminal' : undefined}
+            >
+              <span className={styles.cpFxSym}>FX {d.fx.pair.replace('=X', '')}</span>
+              <span>· {d.fx.level} <span className={d.fx.pct >= 0 ? styles.pos : styles.neg}>{d.fx.pct >= 0 ? '+' : ''}{d.fx.pct}%</span></span>
+              {onPickFx && fxPair && <span className={styles.cpFxGo}>↗ Terminal</span>}
+            </div>
+          )}
 
           <div className={styles.cpSection}>MACRO {d.macro.year ? `· World Bank ${d.macro.year}` : ''}</div>
           {d.macro.available === false

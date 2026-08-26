@@ -45,8 +45,8 @@ optionnelles : `cp backend/.env.example backend/.env` puis renseigne-les et rela
                      ▼                    ▼                          ▼
         ┌──────────────────────────────────────────────────────────────┐
         │  FastAPI backend (:8000)                                      │
-        │   poll · baseline · fx · finnhub · simulator loops            │
-        │   macro_loop · globe_loop · Hub → WebSocket                   │
+        │   poll · baseline · fx · finnhub loops (aucun simulateur)     │
+        │   warm loops (caches dashboards) · Hub → WebSocket            │
         └───────────────┬──────────────────────────────────────────────┘
               /api/* REST │ /ws/prices (push)
                           ▼
@@ -86,7 +86,9 @@ Trois vues principales, bascule depuis le header : **Terminal** (par défaut) ·
 - Carte du monde interactive, **~42 pays** — colorés par la **performance du jour** de leur indice,
   ou par un indicateur **World Bank** au choix (croissance PIB / inflation / chômage). Clic → volet
   pays (indice + mini-graphe, devise, macro détaillée : PIB, inflation, chômage, population, PIB
-  nominal, dette, balance courante ; news du pays).
+  nominal, dette, balance courante ; news du pays). L'**indice** et la **paire de change** du
+  volet sont **cliquables → Terminal** : les cinq paires majeures ouvrent directement, les autres
+  (USDCLP, USDBRL, USDZAR…) sont enregistrées à la volée et se mettent à streamer.
 - **Barre de synthèse mondiale** (leaders / lanternes rouges + moyennes régionales), **horloge des
   sessions** mondiales (fériés exclus), et une couche **géopolitique** en bulles (survol → panneau
   de news du pays).
@@ -102,7 +104,10 @@ Trois vues principales, bascule depuis le header : **Terminal** (par défaut) ·
 
 - **Risk Barometer** : score composite **Risk-On/Risk-Off 0–100** (VIX, crédit HY/IG, actions vs
   obligations, DXY, or) en cadran animé.
-- **Courbe des taux** (interactive), **taux directeurs**, **VIX / régime de risque** (+ sparkline),
+- **Courbe des taux US** servie par le **Trésor américain** lui-même (fichier officiel du jour,
+  14 maturités de 1M à 30Y toutes datées de la même séance, sans clé ; FRED en repli) — le panneau
+  affiche sa **source** et sa **date**, et le 2s10s en **points de base**.
+- **Taux directeurs**, **VIX / régime de risque** (+ sparkline),
   **US Dollar (DXY)**, **heatmap cross-asset** (tuiles cliquables → terminal).
 - **Sector RRG** : *Relative Rotation Graph* des 11 secteurs vs SPY (4 quadrants, traînées au survol).
 - **Corrélations cross-asset** : heatmap Pearson des rendements journaliers sur 3 mois (numpy).
@@ -111,6 +116,19 @@ Trois vues principales, bascule depuis le header : **Terminal** (par défaut) ·
 - **Indicateurs économiques** (CPI, PIB, chômage, taux) via **FRED**. Macro de marché **réelle** via
   Yahoo (sans clé) ; l'éco vient de **FRED** (clé gratuite) — sinon ces panneaux invitent à ajouter
   la clé (**rien n'est simulé**).
+
+## Performance
+
+Les deux dashboards sont servis **entièrement depuis des caches chauds** : des boucles de fond les
+rafraîchissent en continu, de sorte qu'une requête client n'attend jamais une reconstruction. Les
+cotations partent en **lot** (un appel Yahoo pour ~18 symboles au lieu d'un par symbole), avec repli
+par symbole pour les marchés que le lot ne sait pas coter.
+
+| | Avant | Après |
+|---|---|---|
+| Ouvrir le **Macro Dashboard** | 2,1 s, pics à 4,3 s | **~0,1 s** |
+| Ouvrir la **Global Map** | 0,5 s, pics à 4,6 s | **~0,02 s** |
+| Premier clic sur un **pays** | 1,5 s | **~0,2 s** |
 
 ## Données — transparence
 
@@ -121,10 +139,16 @@ et le **spread** sont **simulés** (aucune source L2 gratuite n'existe) ; le car
 spread que la grille pour rester cohérent. Aucun ordre n'est envoyé à un vrai broker — c'est un
 démo / simulateur.
 
+**Rien n'est inventé pour combler un trou.** Un instrument qu'aucune source ne sait coter porte
+`price: null` et l'interface le dit (`NO DATA`, `NO CHART DATA`, `NO MARKET DATA`) : pas de prix de
+départ, pas de marche aléatoire, pas de bougie de substitution. Une position sans prix live n'est
+pas valorisée — elle affiche `—`, jamais un `0,00 $` qui se lirait « stable ». Si un fournisseur
+tombe ou nous *rate-limite*, les endpoints se dégradent en « pas de données » au lieu d'échouer.
+
 ## Structure
 
 ```
-backend/    main.py · feeds.py · market.py · providers.py · macro.py · globe.py · assets.py · hub.py · config.py · tests/
+backend/    main.py · feeds.py · market.py · providers.py · macro.py · globe.py · cache.py · assets.py · hub.py · config.py · tests/
 frontend/   src/{store.ts, api.ts, indicators.ts, geo/*, components/*, components/macro/*, components/globe/*}
 dev.ps1     lance backend + frontend
 ```
@@ -136,3 +160,4 @@ dev.ps1     lance backend + frontend
 | `npm run dev` | serveur de dev + HMR |
 | `npm run build` | typecheck + bundle de production (`dist/`) |
 | `uvicorn main:app` | API + flux WebSocket |
+| `pytest` (dans `backend/`) | suite de tests (111) |

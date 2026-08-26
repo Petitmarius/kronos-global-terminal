@@ -11,53 +11,53 @@ import macro
 import providers
 
 # iso2, ISO numeric (int, for topojson join), display name, Yahoo index,
-# Yahoo FX pair vs USD (or None), invFx=True when pair is USD-quoted (USDxxx), region.
+# Yahoo FX pair (or None -- the US has no pair vs itself), region.
 GLOBE_MARKETS = [
     # Americas
-    {"iso": "US", "num": 840, "name": "United States", "index": "^GSPC", "fx": None, "invFx": False, "region": "Americas"},
-    {"iso": "CA", "num": 124, "name": "Canada", "index": "^GSPTSE", "fx": "USDCAD=X", "invFx": True, "region": "Americas"},
-    {"iso": "BR", "num": 76, "name": "Brazil", "index": "^BVSP", "fx": "USDBRL=X", "invFx": True, "region": "Americas"},
-    {"iso": "MX", "num": 484, "name": "Mexico", "index": "^MXX", "fx": "USDMXN=X", "invFx": True, "region": "Americas"},
-    {"iso": "AR", "num": 32, "name": "Argentina", "index": "^MERV", "fx": "USDARS=X", "invFx": True, "region": "Americas"},
-    {"iso": "CL", "num": 152, "name": "Chile", "index": "^IPSA", "fx": "USDCLP=X", "invFx": True, "region": "Americas"},
+    {"iso": "US", "num": 840, "name": "United States", "index": "^GSPC", "fx": None, "region": "Americas"},
+    {"iso": "CA", "num": 124, "name": "Canada", "index": "^GSPTSE", "fx": "USDCAD=X", "region": "Americas"},
+    {"iso": "BR", "num": 76, "name": "Brazil", "index": "^BVSP", "fx": "USDBRL=X", "region": "Americas"},
+    {"iso": "MX", "num": 484, "name": "Mexico", "index": "^MXX", "fx": "USDMXN=X", "region": "Americas"},
+    {"iso": "AR", "num": 32, "name": "Argentina", "index": "^MERV", "fx": "USDARS=X", "region": "Americas"},
+    {"iso": "CL", "num": 152, "name": "Chile", "index": "^IPSA", "fx": "USDCLP=X", "region": "Americas"},
     # EMEA
-    {"iso": "GB", "num": 826, "name": "United Kingdom", "index": "^FTSE", "fx": "GBPUSD=X", "invFx": False, "region": "EMEA"},
-    {"iso": "DE", "num": 276, "name": "Germany", "index": "^GDAXI", "fx": "EURUSD=X", "invFx": False, "region": "EMEA"},
-    {"iso": "FR", "num": 250, "name": "France", "index": "^FCHI", "fx": "EURUSD=X", "invFx": False, "region": "EMEA"},
-    {"iso": "ES", "num": 724, "name": "Spain", "index": "^IBEX", "fx": "EURUSD=X", "invFx": False, "region": "EMEA"},
-    {"iso": "IT", "num": 380, "name": "Italy", "index": "FTSEMIB.MI", "fx": "EURUSD=X", "invFx": False, "region": "EMEA"},
-    {"iso": "CH", "num": 756, "name": "Switzerland", "index": "^SSMI", "fx": "USDCHF=X", "invFx": True, "region": "EMEA"},
-    {"iso": "NL", "num": 528, "name": "Netherlands", "index": "^AEX", "fx": "EURUSD=X", "invFx": False, "region": "EMEA"},
-    {"iso": "SE", "num": 752, "name": "Sweden", "index": "^OMX", "fx": "USDSEK=X", "invFx": True, "region": "EMEA"},
-    {"iso": "NO", "num": 578, "name": "Norway", "index": "OSEBX.OL", "fx": "USDNOK=X", "invFx": True, "region": "EMEA"},
-    {"iso": "DK", "num": 208, "name": "Denmark", "index": "^OMXC25", "fx": "USDDKK=X", "invFx": True, "region": "EMEA"},
-    {"iso": "FI", "num": 246, "name": "Finland", "index": "^OMXH25", "fx": "EURUSD=X", "invFx": False, "region": "EMEA"},
-    {"iso": "AT", "num": 40, "name": "Austria", "index": "^ATX", "fx": "EURUSD=X", "invFx": False, "region": "EMEA"},
-    {"iso": "BE", "num": 56, "name": "Belgium", "index": "^BFX", "fx": "EURUSD=X", "invFx": False, "region": "EMEA"},
-    {"iso": "PT", "num": 620, "name": "Portugal", "index": "PSI20.LS", "fx": "EURUSD=X", "invFx": False, "region": "EMEA"},
-    {"iso": "GR", "num": 300, "name": "Greece", "index": "GD.AT", "fx": "EURUSD=X", "invFx": False, "region": "EMEA"},
-    {"iso": "IE", "num": 372, "name": "Ireland", "index": "^ISEQ", "fx": "EURUSD=X", "invFx": False, "region": "EMEA"},
-    {"iso": "PL", "num": 616, "name": "Poland", "index": "WIG20.WA", "fx": "USDPLN=X", "invFx": True, "region": "EMEA"},
-    {"iso": "TR", "num": 792, "name": "Turkey", "index": "XU100.IS", "fx": "USDTRY=X", "invFx": True, "region": "EMEA"},
-    {"iso": "ZA", "num": 710, "name": "South Africa", "index": "^J203.JO", "fx": "USDZAR=X", "invFx": True, "region": "EMEA"},
-    {"iso": "IL", "num": 376, "name": "Israel", "index": "^TA125.TA", "fx": "USDILS=X", "invFx": True, "region": "EMEA"},
-    {"iso": "SA", "num": 682, "name": "Saudi Arabia", "index": "^TASI.SR", "fx": "USDSAR=X", "invFx": True, "region": "EMEA"},
-    {"iso": "EG", "num": 818, "name": "Egypt", "index": "^CASE30", "fx": "USDEGP=X", "invFx": True, "region": "EMEA"},
-    {"iso": "RU", "num": 643, "name": "Russia", "index": "IMOEX.ME", "fx": "USDRUB=X", "invFx": True, "region": "EMEA"},
+    {"iso": "GB", "num": 826, "name": "United Kingdom", "index": "^FTSE", "fx": "GBPUSD=X", "region": "EMEA"},
+    {"iso": "DE", "num": 276, "name": "Germany", "index": "^GDAXI", "fx": "EURUSD=X", "region": "EMEA"},
+    {"iso": "FR", "num": 250, "name": "France", "index": "^FCHI", "fx": "EURUSD=X", "region": "EMEA"},
+    {"iso": "ES", "num": 724, "name": "Spain", "index": "^IBEX", "fx": "EURUSD=X", "region": "EMEA"},
+    {"iso": "IT", "num": 380, "name": "Italy", "index": "FTSEMIB.MI", "fx": "EURUSD=X", "region": "EMEA"},
+    {"iso": "CH", "num": 756, "name": "Switzerland", "index": "^SSMI", "fx": "USDCHF=X", "region": "EMEA"},
+    {"iso": "NL", "num": 528, "name": "Netherlands", "index": "^AEX", "fx": "EURUSD=X", "region": "EMEA"},
+    {"iso": "SE", "num": 752, "name": "Sweden", "index": "^OMX", "fx": "USDSEK=X", "region": "EMEA"},
+    {"iso": "NO", "num": 578, "name": "Norway", "index": "OSEBX.OL", "fx": "USDNOK=X", "region": "EMEA"},
+    {"iso": "DK", "num": 208, "name": "Denmark", "index": "^OMXC25", "fx": "USDDKK=X", "region": "EMEA"},
+    {"iso": "FI", "num": 246, "name": "Finland", "index": "^OMXH25", "fx": "EURUSD=X", "region": "EMEA"},
+    {"iso": "AT", "num": 40, "name": "Austria", "index": "^ATX", "fx": "EURUSD=X", "region": "EMEA"},
+    {"iso": "BE", "num": 56, "name": "Belgium", "index": "^BFX", "fx": "EURUSD=X", "region": "EMEA"},
+    {"iso": "PT", "num": 620, "name": "Portugal", "index": "PSI20.LS", "fx": "EURUSD=X", "region": "EMEA"},
+    {"iso": "GR", "num": 300, "name": "Greece", "index": "GD.AT", "fx": "EURUSD=X", "region": "EMEA"},
+    {"iso": "IE", "num": 372, "name": "Ireland", "index": "^ISEQ", "fx": "EURUSD=X", "region": "EMEA"},
+    {"iso": "PL", "num": 616, "name": "Poland", "index": "WIG20.WA", "fx": "USDPLN=X", "region": "EMEA"},
+    {"iso": "TR", "num": 792, "name": "Turkey", "index": "XU100.IS", "fx": "USDTRY=X", "region": "EMEA"},
+    {"iso": "ZA", "num": 710, "name": "South Africa", "index": "^J203.JO", "fx": "USDZAR=X", "region": "EMEA"},
+    {"iso": "IL", "num": 376, "name": "Israel", "index": "^TA125.TA", "fx": "USDILS=X", "region": "EMEA"},
+    {"iso": "SA", "num": 682, "name": "Saudi Arabia", "index": "^TASI.SR", "fx": "USDSAR=X", "region": "EMEA"},
+    {"iso": "EG", "num": 818, "name": "Egypt", "index": "^CASE30", "fx": "USDEGP=X", "region": "EMEA"},
+    {"iso": "RU", "num": 643, "name": "Russia", "index": "IMOEX.ME", "fx": "USDRUB=X", "region": "EMEA"},
     # Asia-Pacific
-    {"iso": "JP", "num": 392, "name": "Japan", "index": "^N225", "fx": "USDJPY=X", "invFx": True, "region": "Asia-Pacific"},
-    {"iso": "CN", "num": 156, "name": "China", "index": "000001.SS", "fx": "USDCNY=X", "invFx": True, "region": "Asia-Pacific"},
-    {"iso": "HK", "num": 344, "name": "Hong Kong", "index": "^HSI", "fx": "USDHKD=X", "invFx": True, "region": "Asia-Pacific"},
-    {"iso": "IN", "num": 356, "name": "India", "index": "^BSESN", "fx": "USDINR=X", "invFx": True, "region": "Asia-Pacific"},
-    {"iso": "KR", "num": 410, "name": "South Korea", "index": "^KS11", "fx": "USDKRW=X", "invFx": True, "region": "Asia-Pacific"},
-    {"iso": "TW", "num": 158, "name": "Taiwan", "index": "^TWII", "fx": "USDTWD=X", "invFx": True, "region": "Asia-Pacific"},
-    {"iso": "AU", "num": 36, "name": "Australia", "index": "^AXJO", "fx": "AUDUSD=X", "invFx": False, "region": "Asia-Pacific"},
-    {"iso": "NZ", "num": 554, "name": "New Zealand", "index": "^NZ50", "fx": "NZDUSD=X", "invFx": False, "region": "Asia-Pacific"},
-    {"iso": "SG", "num": 702, "name": "Singapore", "index": "^STI", "fx": "USDSGD=X", "invFx": True, "region": "Asia-Pacific"},
-    {"iso": "ID", "num": 360, "name": "Indonesia", "index": "^JKSE", "fx": "USDIDR=X", "invFx": True, "region": "Asia-Pacific"},
-    {"iso": "TH", "num": 764, "name": "Thailand", "index": "^SET.BK", "fx": "USDTHB=X", "invFx": True, "region": "Asia-Pacific"},
-    {"iso": "MY", "num": 458, "name": "Malaysia", "index": "^KLSE", "fx": "USDMYR=X", "invFx": True, "region": "Asia-Pacific"},
-    {"iso": "PH", "num": 608, "name": "Philippines", "index": "PSEI.PS", "fx": "USDPHP=X", "invFx": True, "region": "Asia-Pacific"},
+    {"iso": "JP", "num": 392, "name": "Japan", "index": "^N225", "fx": "USDJPY=X", "region": "Asia-Pacific"},
+    {"iso": "CN", "num": 156, "name": "China", "index": "000001.SS", "fx": "USDCNY=X", "region": "Asia-Pacific"},
+    {"iso": "HK", "num": 344, "name": "Hong Kong", "index": "^HSI", "fx": "USDHKD=X", "region": "Asia-Pacific"},
+    {"iso": "IN", "num": 356, "name": "India", "index": "^BSESN", "fx": "USDINR=X", "region": "Asia-Pacific"},
+    {"iso": "KR", "num": 410, "name": "South Korea", "index": "^KS11", "fx": "USDKRW=X", "region": "Asia-Pacific"},
+    {"iso": "TW", "num": 158, "name": "Taiwan", "index": "^TWII", "fx": "USDTWD=X", "region": "Asia-Pacific"},
+    {"iso": "AU", "num": 36, "name": "Australia", "index": "^AXJO", "fx": "AUDUSD=X", "region": "Asia-Pacific"},
+    {"iso": "NZ", "num": 554, "name": "New Zealand", "index": "^NZ50", "fx": "NZDUSD=X", "region": "Asia-Pacific"},
+    {"iso": "SG", "num": 702, "name": "Singapore", "index": "^STI", "fx": "USDSGD=X", "region": "Asia-Pacific"},
+    {"iso": "ID", "num": 360, "name": "Indonesia", "index": "^JKSE", "fx": "USDIDR=X", "region": "Asia-Pacific"},
+    {"iso": "TH", "num": 764, "name": "Thailand", "index": "^SET.BK", "fx": "USDTHB=X", "region": "Asia-Pacific"},
+    {"iso": "MY", "num": 458, "name": "Malaysia", "index": "^KLSE", "fx": "USDMYR=X", "region": "Asia-Pacific"},
+    {"iso": "PH", "num": 608, "name": "Philippines", "index": "PSEI.PS", "fx": "USDPHP=X", "region": "Asia-Pacific"},
 ]
 
 _WB_BASE = "https://api.worldbank.org/v2"
@@ -290,10 +290,13 @@ def build_country(iso: str) -> dict | None:
              "pct": round(q["pct"], 2) if q else None,
              "points": (candles or {}).get("points", [])}
     fx = None
-    if meta["fx"]:
-        if fq:
-            lvl = 1.0 / fq["price"] if meta["invFx"] and fq["price"] else fq["price"]
-            fx = {"pair": meta["fx"], "level": round(lvl, 4), "pct": round(fq["pct"], 2)}
+    if meta["fx"] and fq:
+        # As Yahoo quotes it. Inverting the rate while still printing the pair's
+        # own name rendered "USDJPY 0.0063" -- the JPYUSD rate -- next to
+        # USDJPY's own percentage, so label, value and sign disagreed on the 26
+        # USD-quoted countries. The Terminal shows the pair this way too, which
+        # is what lets the panel's FX row click through to it.
+        fx = {"pair": meta["fx"], "level": round(fq["price"], 4), "pct": round(fq["pct"], 2)}
     macro_data = world_bank_macro(iso)
     news = _country_news(iso, macro.fetch_news().get("items", []))
     out = {"iso": iso, "name": meta["name"], "index": index, "fx": fx,
