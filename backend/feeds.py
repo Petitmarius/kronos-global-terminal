@@ -6,7 +6,8 @@ Data sources, layered:
     (indices, commodities), polled every few seconds.
   - Finnhub websocket (optional key) — fast real-time ticks for crypto / forex /
     stocks; these override the polled price.
-  - Simulator — only drives anything still waiting for its first real datapoint.
+  - Nothing else. An instrument with no provider data keeps `price = None` and
+    the UI shows "no data" -- no value is ever invented to fill the gap.
 """
 from __future__ import annotations
 
@@ -91,14 +92,6 @@ async def fx_loop() -> None:
         if updated:
             await HUB.broadcast({"type": "quotes", "data": updated})
         await asyncio.sleep(60)
-
-
-async def simulator_loop() -> None:
-    while True:
-        quotes = MARKET.sim_step()
-        if quotes:
-            await HUB.broadcast({"type": "quotes", "data": quotes})
-        await asyncio.sleep(config.SIM_INTERVAL)
 
 
 async def finnhub_loop() -> None:

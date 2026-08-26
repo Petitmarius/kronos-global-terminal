@@ -81,6 +81,10 @@
 }
 .row:hover { background: #141b23; }
 .on { background: #11201a; border-left-color: var(--green); }
+/* awaiting a real price: dim it rather than show a plausible-looking number */
+.nodata .rprice, .nodata .rchg { color: var(--dim); }
+.nodata .rchg { font-size: 8.5px; letter-spacing: .6px; }
+.nodata .sym { opacity: .7; }
 
 .left { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
 .sym { font-size: 12.5px; font-weight: 700; color: var(--text); letter-spacing: .4px; display: flex; align-items: center; gap: 5px; }

@@ -4,7 +4,9 @@ from __future__ import annotations
 
 import re
 import time
+from concurrent.futures import ThreadPoolExecutor
 
+import cache
 import macro
 import providers
 
@@ -142,6 +144,12 @@ def world_bank_macro(iso: str) -> dict:
     return _wb_panel_all().get(iso, {"available": False})
 
 
+def warm_world_bank() -> dict:
+    """Pull the whole panel once, up front. Seven `country/all` fetches cached
+    24h -- 1.1s that the user otherwise pays on their first country click."""
+    return _wb_panel_all()
+
+
 def macro_layer() -> dict:
     """Latest World Bank GDP/inflation/unemployment for every mapped country."""
     isos = {c["iso"] for c in GLOBE_MARKETS}
@@ -150,8 +158,9 @@ def macro_layer() -> dict:
     return {"metrics": metrics}
 
 
-_markets_cache: tuple[float, dict] | None = None
-_MK_TTL = 20.0
+# See macro._BOARD_HARD_TTL: a ceiling for when the warm loop dies, not the
+# freshness knob. `main.WARM` is what keeps this current.
+_MK_HARD_TTL = 120.0
 
 
 def build_globe_markets(quotes: dict[str, dict]) -> dict:
@@ -166,19 +175,19 @@ def build_globe_markets(quotes: dict[str, dict]) -> dict:
     return {"updated": int(time.time() * 1000), "countries": countries}
 
 
+def _build_markets() -> dict:
+    """All 42 country indices in one batched call: 4.5s -> 0.11s. Spark leaves a
+    couple of thin markets out (^IPSA, IMOEX.ME); `yahoo_quotes_batch` retries
+    those per symbol, which is the only reason Chile and Russia stay on the map.
+    """
+    return build_globe_markets(providers.yahoo_quotes_batch([c["index"] for c in GLOBE_MARKETS]))
+
+
+MARKETS = cache.Cached(_build_markets, hard_ttl=_MK_HARD_TTL)
+
+
 def fetch_globe_markets() -> dict:
-    global _markets_cache
-    now = time.time()
-    if _markets_cache and now - _markets_cache[0] < _MK_TTL:
-        return _markets_cache[1]
-    quotes: dict[str, dict] = {}
-    for c in GLOBE_MARKETS:
-        q = providers.yahoo_quote_raw(c["index"])
-        if q:
-            quotes[c["index"]] = q
-    board = build_globe_markets(quotes)
-    _markets_cache = (now, board)
-    return board
+    return MARKETS.get()
 
 
 # name -> centroid + match aliases (word-boundary, case-insensitive)
@@ -267,15 +276,21 @@ def build_country(iso: str) -> dict | None:
     if iso in _country_cache and now - _country_cache[iso][0] < _COUNTRY_TTL:
         return _country_cache[iso][1]
 
-    q = providers.yahoo_quote_raw(meta["index"])
-    candles = providers.yahoo_candles_raw(meta["index"], "1M")
+    # index quote, index history and the FX pair are independent: ~0.35s one
+    # after another, ~0.15s together.
+    with ThreadPoolExecutor(max_workers=3) as ex:
+        f_quote = ex.submit(providers.yahoo_quote_raw, meta["index"])
+        f_candles = ex.submit(providers.yahoo_candles_raw, meta["index"], "1M")
+        f_fx = ex.submit(providers.yahoo_quote_raw, meta["fx"]) if meta["fx"] else None
+        q = f_quote.result()
+        candles = f_candles.result()
+        fq = f_fx.result() if f_fx else None
     index = {"symbol": meta["index"],
              "level": round(q["price"], 2) if q else None,
              "pct": round(q["pct"], 2) if q else None,
              "points": (candles or {}).get("points", [])}
     fx = None
     if meta["fx"]:
-        fq = providers.yahoo_quote_raw(meta["fx"])
         if fq:
             lvl = 1.0 / fq["price"] if meta["invFx"] and fq["price"] else fq["price"]
             fx = {"pair": meta["fx"], "level": round(lvl, 4), "pct": round(fq["pct"], 2)}

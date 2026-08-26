@@ -1,3 +1,5 @@
+import time
+
 import globe
 
 
@@ -83,3 +85,60 @@ def test_country_news_filters_and_trims():
 
 def test_country_news_unknown_iso_empty():
     assert globe._country_news("ZZ", [{"headline": "x", "datetime": 0}]) == []
+
+
+# --- Markets board: batched, with a per-symbol safety net -------------------
+
+def test_fetch_globe_markets_uses_one_batched_call(monkeypatch):
+    calls = []
+    def fake_batch(syms):
+        calls.append(list(syms))
+        return {s: {"price": 100.0, "prevClose": 99.0, "pct": 1.01} for s in syms}
+    monkeypatch.setattr(globe.providers, "yahoo_quotes_batch", fake_batch)
+    board = globe.MARKETS.refresh()
+    assert len(calls) == 1
+    assert set(calls[0]) == {c["index"] for c in globe.GLOBE_MARKETS}
+    assert len(board["countries"]) == len(globe.GLOBE_MARKETS)
+
+
+def test_a_country_the_batch_cannot_price_is_omitted_not_zeroed(monkeypatch):
+    """^IPSA (Chile) and IMOEX.ME (Russia) are the real gaps. If the fallback
+    also fails, the country must vanish from the board rather than show 0."""
+    drop = {"^IPSA", "IMOEX.ME"}
+    monkeypatch.setattr(globe.providers, "yahoo_quotes_batch",
+                        lambda syms: {s: {"price": 100.0, "prevClose": 99.0, "pct": 1.01}
+                                      for s in syms if s not in drop})
+    board = globe.MARKETS.refresh()
+    isos = {c["iso"] for c in board["countries"]}
+    assert "CL" not in isos and "RU" not in isos
+    assert "US" in isos and len(board["countries"]) == len(globe.GLOBE_MARKETS) - 2
+
+
+def test_markets_endpoint_serves_the_warm_cache_without_rebuilding(monkeypatch):
+    builds = []
+    monkeypatch.setattr(globe.providers, "yahoo_quotes_batch",
+                        lambda syms: builds.append(1) or
+                        {s: {"price": 1.0, "prevClose": 1.0, "pct": 0.0} for s in syms})
+    globe.MARKETS.refresh()
+    for _ in range(50):
+        globe.fetch_globe_markets()
+    assert len(builds) == 1, f"client requests rebuilt the map {len(builds) - 1} times"
+
+
+def test_build_country_fetches_its_three_quotes_concurrently(monkeypatch):
+    """Index quote, index candles and the FX pair are independent; serially they
+    cost ~0.35s, together ~0.15s."""
+    import threading
+    seen, lock = [], threading.Lock()
+    def slow(*_a, **_k):
+        with lock: seen.append(threading.current_thread().name)
+        time.sleep(0.05)
+        return {"price": 1.0, "prevClose": 1.0, "pct": 0.0, "points": []}
+    monkeypatch.setattr(globe.providers, "yahoo_quote_raw", slow)
+    monkeypatch.setattr(globe.providers, "yahoo_candles_raw", lambda *a, **k: {"points": []})
+    monkeypatch.setattr(globe, "world_bank_macro", lambda iso: {"available": False})
+    monkeypatch.setattr(globe.macro, "fetch_news", lambda: {"items": []})
+    globe._country_cache.clear()
+    t0 = time.perf_counter()
+    globe.build_country("FR")
+    assert time.perf_counter() - t0 < 0.09, "the three fetches still run one after another"

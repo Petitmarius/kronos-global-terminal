@@ -6,6 +6,7 @@ import type { MapMetric } from '../../geo/scales'
 import { useStore } from '../../store'
 import type { GeoPoint, GlobeGeo, GlobeMarkets, MacroLayer } from '../../types'
 import CountryPanel from './CountryPanel'
+import CountryPositionsModal from './CountryPositionsModal'
 import GeoPanel from './GeoPanel'
 import MapLegend from './MapLegend'
 import AnalyticsPanel from './AnalyticsPanel'
@@ -27,38 +28,50 @@ export default function GlobalMap() {
   const [geoSel, setGeoSel] = useState<GeoPoint | null>(null)
   const [showGeo, setShowGeo] = useState(false)
   const [portfolio, setPortfolio] = useState<boolean>(loadPf)
+  const [expoSel, setExpoSel] = useState<string | null>(null)
 
   const positions = useStore((s) => s.positions)
   const history = useStore((s) => s.history)
   const assets = useStore((s) => s.assets)
   const customs = useStore((s) => s.customs)
-  const select = useStore((s) => s.select)
+  const select = useStore((s) => s.selectAndWatch)
   const setView = useStore((s) => s.setView)
-  const registerAsset = useStore((s) => s.registerAsset)
+  const addToWatchlist = useStore((s) => s.addToWatchlist)
 
-  const exposure = useMemo(() => {
-    const indexMap: Record<string, string> = {}
-    for (const c of markets?.countries ?? []) indexMap[c.index] = c.iso
-    return buildExposure(positions, history, assets, customs, indexMap)
-  }, [positions, history, assets, customs, markets])
+  const indexMap = useMemo(() => {
+    const m: Record<string, string> = {}
+    for (const c of markets?.countries ?? []) m[c.index] = c.iso
+    return m
+  }, [markets])
+
+  const exposure = useMemo(
+    () => buildExposure(positions, history, assets, customs, indexMap),
+    [positions, history, assets, customs, indexMap],
+  )
 
   const selectCountry = (iso: string) => { setGeoSel(null); setSelected(iso) }
   const hoverGeo = (p: GeoPoint) => { setSelected(null); setGeoSel(p) }
   const toggleGeo = (v: boolean) => { if (!v) setGeoSel(null); if (v) setPortfolio(false); setShowGeo(v) }
   const togglePortfolio = (v: boolean) => {
     if (v) { setShowGeo(false); setGeoSel(null); setSelected(null) }
+    setExpoSel(null)
     setPortfolio(v)
     try { localStorage.setItem(LS_PF, v ? '1' : '0') } catch { /* ignore */ }
   }
-  const pick = (symbol: string) => { select(symbol); setView('TERMINAL') }
-  const exposureClick = (iso: string) => { const c = exposure.perCountry[iso]; if (c?.topSymbol) pick(c.topSymbol) }
+  const pick = (symbol: string) => { setExpoSel(null); select(symbol); setView('TERMINAL') }
+  // A country in portfolio mode opens the full book for that country; only a row
+  // inside that modal navigates to the Terminal.
+  const exposureClick = (iso: string) => setExpoSel(iso)
+  const isoName = (iso: string) => markets?.countries.find((c) => c.iso === iso)?.name ?? iso
   // country-panel index title -> Terminal. Base indices that overlap a tradable
   // symbol select it directly; the other countries' indices are added on the fly.
   const INDEX_LOCAL: Record<string, string> = { '^GSPC': 'SPX500', '^GDAXI': 'GER40', '^FTSE': 'UK100' }
   const pickIndex = (yahoo: string, name: string) => {
     const local = INDEX_LOCAL[yahoo]
     if (local) { pick(local); return }
-    void addAsset(yahoo, `${name} Index`, 'INDEX').then((a) => { if (a) { registerAsset(a); pick(a.symbol) } })
+    // addToWatchlist (not registerAsset) so the custom meta is saved and the
+    // index is re-registered on the next reload instead of leaving a dead row.
+    void addAsset(yahoo, `${name} Index`, 'INDEX').then((a) => { if (a) { addToWatchlist(a, yahoo); setView('TERMINAL') } })
   }
 
   useEffect(() => {
@@ -84,8 +97,12 @@ export default function GlobalMap() {
           <button className={`${styles.ctrlBtn} ${showGeo ? styles.ctrlGeoOn : ''}`} onClick={() => toggleGeo(!showGeo)}>◉ Geopolitical</button>
         </div>
         {!portfolio && <MapLegend metric={metric} onMetric={setMetric} />}
-        {portfolio && <PortfolioPanel exposure={exposure} onPick={pick} onClose={() => togglePortfolio(false)} />}
+        {portfolio && <PortfolioPanel exposure={exposure} onCountry={exposureClick} onClose={() => togglePortfolio(false)} />}
         {portfolio && <AnalyticsPanel exposure={exposure} history={history} onPick={pick} />}
+        {portfolio && expoSel && (
+          <CountryPositionsModal iso={expoSel} name={isoName(expoSel)} indexMap={indexMap}
+            onPick={pick} onClose={() => setExpoSel(null)} />
+        )}
         {!portfolio && selected && <CountryPanel iso={selected} onClose={() => setSelected(null)} onPickIndex={pickIndex} />}
         {showGeo && geoSel && <GeoPanel point={geoSel} onClose={() => setGeoSel(null)} />}
       </div>

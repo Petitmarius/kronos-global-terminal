@@ -1,22 +1,27 @@
 """Macro dashboard data layer.
 
-Two data planes:
+Three data planes:
   - Yahoo (keyless): the "board" — rates majors, VIX, DXY, sectors, cross-asset.
-  - FRED (free key): economic indicators, full yield curve, latest releases.
+  - US Treasury (keyless): the par yield curve, straight from the publisher.
+  - FRED (free key): economic indicators, latest releases, curve fallback.
 FRED functions degrade to {"available": False} when no key is configured.
 """
 from __future__ import annotations
 
+import csv
 import datetime
 import email.utils
+import io
 import re
 import time
 import urllib.parse
 import urllib.request
 import xml.etree.ElementTree as ET
+from concurrent.futures import ThreadPoolExecutor
 
 import numpy as np
 
+import cache
 import config
 import providers
 
@@ -147,8 +152,11 @@ LOCAL_MAP = {
     "EURUSD=X": "EURUSD", "USDJPY=X": "USDJPY", "GBPUSD=X": "GBPUSD",
 }
 
-_board_cache: tuple[float, dict] | None = None
-_BOARD_TTL = 20.0
+# A safety ceiling, not the freshness knob: `main.WARM` refreshes the board on a
+# far shorter period, so a request is served from cache. This only bites if that
+# loop dies -- the previous behaviour (TTL 20s under a 30s loop) left a 10s hole
+# in every cycle where the client rebuilt all 37 quotes itself, costing 4.3s.
+_BOARD_HARD_TTL = 120.0
 
 
 def board_symbols() -> list[str]:
@@ -246,19 +254,16 @@ def build_board(quotes: dict[str, dict]) -> dict:
     }
 
 
+def _build_board() -> dict:
+    """Every board symbol in one batched call: 37 quotes, 4.3s -> 0.11s."""
+    return build_board(providers.yahoo_quotes_batch(board_symbols()))
+
+
+BOARD = cache.Cached(_build_board, hard_ttl=_BOARD_HARD_TTL)
+
+
 def fetch_board() -> dict:
-    global _board_cache
-    now = time.time()
-    if _board_cache and now - _board_cache[0] < _BOARD_TTL:
-        return _board_cache[1]
-    quotes: dict[str, dict] = {}
-    for ysym in board_symbols():
-        q = providers.yahoo_quote_raw(ysym)
-        if q:
-            quotes[ysym] = q
-    board = build_board(quotes)
-    _board_cache = (now, board)
-    return board
+    return BOARD.get()
 
 
 # --- Economics, curve & releases (FRED) -------------------------------------
@@ -270,6 +275,7 @@ ECON = [
     ("A191RL1Q225SBEA", "GDP (QoQ SAAR)", "lin", "%"),
     ("FEDFUNDS", "Fed Funds", "lin", "%"),
 ]
+# Fallback tenors only (see `_fred_curve`); Treasury is the primary source.
 CURVE_FRED = [
     ("DGS1MO", 1, "1M"), ("DGS3MO", 3, "3M"), ("DGS6MO", 6, "6M"),
     ("DGS1", 12, "1Y"), ("DGS2", 24, "2Y"), ("DGS3", 36, "3Y"),
@@ -286,29 +292,146 @@ RELEASES_FRED = [
 def build_econ() -> dict:
     if not fred_available():
         return {"available": False, "series": []}
+    # One round-trip per indicator, none of them waiting on the previous one.
+    with ThreadPoolExecutor(max_workers=min(len(ECON), _SERIES_WORKERS)) as ex:
+        fetched = list(ex.map(lambda e: fred_observations(e[0], units=e[2], limit=40), ECON))
     series = []
-    for sid, label, units, unit in ECON:
-        obs = fred_observations(sid, units=units, limit=40)
+    for (sid, label, units, unit), obs in zip(ECON, fetched):
         value, prior = latest_prior(obs)
+        # `period` is the observation date, not the publication date: FEDFUNDS is
+        # a MONTHLY AVERAGE, so the UI can say which month it is showing.
         series.append({"key": sid, "label": label, "value": value,
-                       "prior": prior, "unit": unit, "spark": spark(obs, 24)})
+                       "prior": prior, "unit": unit, "spark": spark(obs, 24),
+                       "period": _latest_obs(obs)[1]})
     return {"available": True, "series": series}
 
 
-def build_curve() -> dict:
+def _latest_obs(obs: list[dict]) -> tuple[float | None, str | None]:
+    """Most recent numeric observation and the date it belongs to."""
+    for o in reversed(obs):
+        v = _num(o.get("value"))
+        if v is not None:
+            return v, o.get("date")
+    return None, None
+
+
+def _fred_curve() -> dict | None:
+    """Backstop only — see `build_curve`. Each DGS series is fetched separately,
+    so the reported `asOf` is the newest date any of them carries."""
     if not fred_available():
-        return {"available": False, "points": [], "spread2s10s": None, "inverted": False}
-    points, by_months = [], {}
+        return None
+    points, as_of = [], ""
     for sid, months, label in CURVE_FRED:
-        value, _ = latest_prior(fred_observations(sid, limit=5))
+        value, date = _latest_obs(fred_observations(sid, limit=5))
         if value is not None:
             points.append({"label": label, "months": months, "yield": round(value, 3)})
-            by_months[months] = value
+            as_of = max(as_of, date or "")
+    if len(points) < 2:
+        return None
+    return {"source": "FRED", "asOf": as_of or None, "points": points}
+
+
+# --- Yield curve (US Treasury primary) --------------------------------------
+
+# treasury.gov publishes the par yield curve itself: same day, every tenor on a
+# single date, no API key. FRED's DGS* series are a one-business-day-lagged
+# mirror of this very file, which is why they used to disagree with the live
+# ^TNX quote sitting next to them on the dashboard.
+_TREASURY_CSV = (
+    "https://home.treasury.gov/resource-center/data-chart-center/interest-rates/"
+    "daily-treasury-rates.csv/{year}/all"
+    "?type=daily_treasury_yield_curve&field_tdr_date_value={year}&page&_format=csv"
+)
+_TENOR_RE = re.compile(r"^\s*(\d+(?:\.\d+)?)\s*(mo|month|yr|year)s?\s*$", re.I)
+_curve_cache: tuple[float, dict] | None = None
+_CURVE_TTL = 900.0  # the file is rewritten once a day, ~4pm ET
+
+
+def _tenor(header: str) -> tuple[float, str] | None:
+    """'1 Mo' -> (1, '1M'), '1.5 Month' -> (1.5, '1.5M'), '10 Yr' -> (120, '10Y').
+
+    Treasury is inconsistent inside its own header row ('1.5 Month' sitting next
+    to '2 Mo'), so match on the unit rather than on an exact spelling.
+    """
+    m = _TENOR_RE.match(header)
+    if not m:
+        return None
+    n = float(m.group(1))
+    yearly = m.group(2).lower().startswith("y")
+    return (n * 12 if yearly else n, f"{n:g}{'Y' if yearly else 'M'}")
+
+
+def parse_treasury_curve(text: str) -> dict | None:
+    """The newest row of the Treasury daily CSV, as curve points.
+
+    Rows arrive newest-first today, but that is not contractual — the row is
+    chosen by parsed date. A blank cell means the tenor was not quoted that day:
+    it is dropped, never coerced to 0.0.
+    """
+    rows = list(csv.reader(io.StringIO(text)))
+    if len(rows) < 2 or not rows[0] or rows[0][0].strip().lower() != "date":
+        return None
+    header = rows[0]
+    tenors = [(i, *t) for i, h in enumerate(header) if i and (t := _tenor(h))]
+    if not tenors:
+        return None
+    best: tuple[datetime.date, list[str]] | None = None
+    for row in rows[1:]:
+        if len(row) != len(header):
+            continue
+        try:
+            day = datetime.datetime.strptime(row[0].strip(), "%m/%d/%Y").date()
+        except ValueError:
+            continue
+        if best is None or day > best[0]:
+            best = (day, row)
+    if best is None:
+        return None
+    day, row = best
+    points = [{"label": label, "months": months, "yield": round(v, 3)}
+              for i, months, label in tenors
+              if (v := _num(row[i].strip())) is not None]
+    if len(points) < 2:
+        return None
+    return {"source": "US TREASURY", "asOf": day.isoformat(), "points": points}
+
+
+def fetch_treasury_curve() -> dict | None:
+    """Cached Treasury curve. Falls back to last year's file during the first
+    days of January, when the current year's file can still be empty. A failure
+    is never cached — a transient 503 must not blank the panel for 15 minutes.
+    """
+    global _curve_cache
+    now = time.time()
+    if _curve_cache and now - _curve_cache[0] < _CURVE_TTL:
+        return _curve_cache[1]
+    year = datetime.date.today().year
+    for y in (year, year - 1):
+        text = _http_text(_TREASURY_CSV.format(year=y), timeout=12.0)
+        if text and (curve := parse_treasury_curve(text)):
+            _curve_cache = (now, curve)
+            return curve
+    return None
+
+
+def build_curve() -> dict:
+    """The US Treasury par yield curve, with FRED as a fallback.
+
+    The payload carries `source` and `asOf` because a curve with no date invites
+    exactly the wrong comparison — against a live quote from a different
+    session. 2s10s stays in percentage points here; the UI renders it in bp.
+    """
+    curve = fetch_treasury_curve() or _fred_curve()
+    if curve is None:
+        return {"available": False, "source": None, "asOf": None,
+                "points": [], "spread2s10s": None, "inverted": False}
+    by_months = {p["months"]: p["yield"] for p in curve["points"]}
     spread = None
     if 24 in by_months and 120 in by_months:
         spread = round(by_months[120] - by_months[24], 2)
-    return {"available": True, "points": points,
-            "spread2s10s": spread, "inverted": spread is not None and spread < 0}
+    return {"available": True, "source": curve["source"], "asOf": curve["asOf"],
+            "points": curve["points"], "spread2s10s": spread,
+            "inverted": spread is not None and spread < 0}
 
 
 def build_releases() -> dict:
@@ -498,6 +621,9 @@ _corr_cache: tuple[float, dict] | None = None
 _CORR_TTL = 3600.0
 
 
+_SERIES_WORKERS = 8
+
+
 def _day_series(ysym: str, tf: str) -> dict[int, float]:
     """Daily close keyed by UTC day (robust alignment across asset calendars)."""
     c = providers.yahoo_candles_raw(ysym, tf)
@@ -506,13 +632,27 @@ def _day_series(ysym: str, tf: str) -> dict[int, float]:
     return {p["time"] // 86400: p["value"] for p in c["points"]}
 
 
+def _day_series_many(ysyms: list[str], tf: str) -> dict[str, dict[int, float]]:
+    """The same fetch for a whole basket at once.
+
+    Yahoo exposes no batch endpoint for candles the way it does for quotes, so
+    this is plain concurrency: the RRG's 12 histories cost ~1.9s one after
+    another and ~0.3s together. `ThreadPoolExecutor.map` preserves order, which
+    is what keeps each series with the symbol it belongs to.
+    """
+    if not ysyms:
+        return {}
+    with ThreadPoolExecutor(max_workers=min(len(ysyms), _SERIES_WORKERS)) as ex:
+        return dict(zip(ysyms, ex.map(lambda s: _day_series(s, tf), ysyms)))
+
+
 def build_correlations() -> dict:
     global _corr_cache
     now = time.time()
     if _corr_cache and now - _corr_cache[0] < _CORR_TTL:
         return _corr_cache[1]
 
-    series = {sym: _day_series(sym, "3M") for sym, _ in CORR_ASSETS}
+    series = _day_series_many([sym for sym, _ in CORR_ASSETS], "3M")
     series = {s: d for s, d in series.items() if len(d) > 15}
     out = {"available": False, "labels": [], "matrix": []}
     if len(series) >= 3:
@@ -562,11 +702,14 @@ def build_rrg() -> dict:
     if _rrg_cache and now - _rrg_cache[0] < _RRG_TTL:
         return _rrg_cache[1]
 
-    bench = _day_series(RRG_BENCH, "6M")
+    # One pass for the benchmark and all 11 sectors; the length guard below is
+    # unchanged, it just runs after the fetch instead of gating it.
+    hist = _day_series_many([RRG_BENCH] + [s for s, _ in SECTORS], "6M")
+    bench = hist.get(RRG_BENCH, {})
     sectors = []
     if len(bench) >= 40:
         for sym, label in SECTORS:
-            sec = _day_series(sym, "6M")
+            sec = hist.get(sym, {})
             days = sorted(set(sec) & set(bench))
             if len(days) < _RRG_N + _RRG_M + _RRG_STRIDE * _RRG_TRAIL:
                 continue
@@ -591,22 +734,41 @@ _mktcap_cache: dict[str, tuple[float, dict]] = {}
 _MKTCAP_TTL = 3600.0
 
 
-def market_cap(symbol: str) -> dict:
+def market_cap(symbol: str, currency: str = "USD", cat: str = "EQ") -> dict:
     """Market capitalization (absolute currency units) for a **US-listed** equity,
     via Finnhub `stock/profile2` (marketCapitalization is in millions). Everything
-    else resolves to None: Finnhub's free profile2 only prices US tickers, so a bare
-    foreign display ticker (LVMH "MC") would otherwise collide with a different US
-    stock (Moelis "MC"). Foreign equities / indices / FX / crypto / commodities → None."""
+    else resolves to None, deliberately -- there is no free source for foreign caps:
+
+    * Finnhub's free profile2 returns 403 for any non-US ticker (MC.PA, 7203.T);
+    * a BARE foreign display ticker does resolve, but to a different company --
+      LVMH's "MC" returns Moelis & Co, which is how a $5.5B cap ended up on a
+      ~EUR 220B stock;
+    * Yahoo's marketCap only lives on quoteSummary / v7 quote, both 401 without a
+      crumb, and the chart `meta` we do have access to does not carry it.
+
+    Showing nothing beats showing another company's number.
+
+    `currency` and `cat` come from the registered asset and are the robust guard:
+    unlike YAHOO_MAP they survive the symbol being unregistered (a watchlist
+    removal or a backend restart empties it, and the old `.get(symbol, symbol)`
+    fallback then made a foreign "MC" look US-listed)."""
     now = time.time()
-    if symbol in _mktcap_cache and now - _mktcap_cache[symbol][0] < _MKTCAP_TTL:
-        return _mktcap_cache[symbol][1]
+    key = f"{symbol}|{(currency or 'USD').upper()}|{cat}"
+    if key in _mktcap_cache and now - _mktcap_cache[key][0] < _MKTCAP_TTL:
+        return _mktcap_cache[key][1]
     out = {"marketCap": None, "currency": None}
-    ysym = providers.YAHOO_MAP.get(symbol, symbol)
-    us_listed = not any(ch in ysym for ch in (".", "^", "=", "-"))  # exchange suffix / index / FX / crypto
+    ysym = providers.YAHOO_MAP.get(symbol)   # no fallback: unknown -> no guess
+    us_listed = (
+        cat == "EQ"
+        and (currency or "USD").upper() == "USD"
+        and ysym is not None
+        # exchange suffix / index / FX / crypto
+        and not any(ch in ysym for ch in (".", "^", "=", "-"))
+    )
     if us_listed:
         data = _finnhub_get("stock/profile2", {"symbol": symbol})
         if isinstance(data, dict) and data.get("marketCapitalization"):
             out = {"marketCap": round(float(data["marketCapitalization"]) * 1e6),
                    "currency": data.get("currency")}
-    _mktcap_cache[symbol] = (now, out)
+    _mktcap_cache[key] = (now, out)
     return out

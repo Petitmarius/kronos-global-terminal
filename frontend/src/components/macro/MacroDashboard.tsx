@@ -58,13 +58,14 @@ export default function MacroDashboard() {
         </Panel>
 
         {/* Row 1 */}
-        <Panel title="Yield Curve" source="FRED">
+        <Panel title="Yield Curve" source={curve?.source ?? 'US TREASURY'}>
           <YieldCurvePanel curve={curve} />
         </Panel>
         <Panel title="Volatility / Risk" source="LIVE">
           {board ? <VolatilityPanel vix={board.vix} /> : loading}
         </Panel>
-        <Panel title="Rates & Central Bank" source="LIVE">
+        {/* MIXED, not LIVE: see the per-tile date notes in RatesPanel */}
+        <Panel title="Rates & Central Bank" source="MIXED">
           {board ? <RatesPanel board={board} curve={curve} econ={econ} /> : loading}
         </Panel>
 

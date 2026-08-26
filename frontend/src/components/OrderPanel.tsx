@@ -95,16 +95,25 @@ export default function OrderPanel() {
     return { value: v, margin: m, risk: r }
   }, [asset, orderPrice, lots, slVal, rate])
 
+  // No provider price -> no ticket. Trading against a made-up number is exactly
+  // what filled limit orders at levels the market never traded.
   if (!asset || !book || price == null) {
     return (
       <section className="col">
-        <div className={`panel ${styles.placeholder}`}>…</div>
+        <div className={`panel ${styles.placeholder}`}>
+          <div className={styles.phTitle}>NO MARKET DATA</div>
+          <div className={styles.phNote}>
+            {asset ? `waiting for a live price on ${asset.symbol}` : 'select an instrument'}
+          </div>
+        </div>
       </section>
     )
   }
 
   const acct = computeAccount(positions, allAssets, history, capital)
   const insufficient = lots > 0 && margin > acct.free
+  // move the market still has to make before a LIMIT/STOP order triggers
+  const distPct = otype === 'MARKET' || Number.isNaN(limit) || price <= 0 ? null : ((limit - price) / price) * 100
 
   const submit = (side: 'BUY' | 'SELL') => {
     const sign: 1 | -1 = side === 'BUY' ? 1 : -1
@@ -173,6 +182,18 @@ export default function OrderPanel() {
               value={priceStr}
               onChange={(e) => setPriceStr(e.target.value)}
             />
+            {distPct != null && (
+              <div className={styles.dist}>
+                <span className={`${styles.distV} ${distPct < 0 ? 'neg' : distPct > 0 ? 'pos' : 'amb'}`}>
+                  {distPct < 0 ? '▼' : distPct > 0 ? '▲' : '='} {Math.abs(distPct).toFixed(2)}%
+                </span>
+                <span className={styles.distNote}>
+                  {distPct === 0
+                    ? 'at market'
+                    : `${distPct < 0 ? 'drop' : 'rise'} needed from ${fmt(price, digits)}`}
+                </span>
+              </div>
+            )}
             <div className={styles.hint}>
               {otype === 'LIMIT' ? 'Buy fills at ≤ price · Sell at ≥ price' : 'Buy fills at ≥ price · Sell at ≤ price'}
             </div>

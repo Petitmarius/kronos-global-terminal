@@ -13,43 +13,62 @@ import globe
 import macro
 import providers
 from assets import CATEGORIES
-from feeds import baseline_loop, finnhub_loop, fx_loop, poll_loop, simulator_loop
+from feeds import baseline_loop, finnhub_loop, fx_loop, poll_loop
 from hub import HUB
 from market import MARKET, TIMEFRAMES
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
+log = logging.getLogger("warm")
 
 
-async def macro_loop() -> None:
-    """Keep the Yahoo board cache warm so the dashboard loads instantly."""
+# (label, what to refresh, seconds between passes, seconds before the first pass)
+#
+# The period IS the freshness contract: every one of these endpoints is served
+# from cache in between, so a request never waits on a rebuild. Each period MUST
+# stay under the cache's own TTL -- the board used to expire after 20s under a
+# 30s loop, leaving a 10s hole in every cycle where the client rebuilt all 37
+# quotes itself and waited 4.3s for them (`tests/test_warm.py` guards this).
+#
+# Boards sit exactly on the dashboards' own 20s poll -- no faster, because
+# `/v8/finance/spark` is undocumented and if it ever 400s the batch degrades to
+# one chart request per symbol (37 + 42), and Yahoo throttling now blanks the
+# terminal outright rather than falling back to something invented.
+# The rest are slow-moving series; the rest are slow-moving series
+# their upstreams publish daily at best. First passes are staggered so a cold
+# start does not fire every provider at once.
+WARM = [
+    ("macro board",   macro.BOARD.refresh,        20.0, 0.0),
+    ("world markets", globe.MARKETS.refresh,      20.0, 0.2),
+    ("news",          macro.fetch_news,          240.0, 0.4),
+    ("yield curve",   macro.build_curve,         600.0, 0.6),
+    ("calendar",      macro.build_calendar,     1200.0, 0.8),
+    ("correlations",  macro.build_correlations, 1800.0, 1.0),
+    ("sector RRG",    macro.build_rrg,          1800.0, 1.2),
+    ("econ",          macro.build_econ,         3600.0, 1.4),
+    ("world bank",    globe.warm_world_bank,   43200.0, 1.6),
+]
+
+
+async def warm_loop(label: str, build, every: float, delay: float) -> None:
+    """Keep one cache warm. A provider outage must not kill the loop that would
+    recover from it, so a failure is logged and retried on the next pass."""
+    await asyncio.sleep(delay)
     while True:
         try:
-            await asyncio.to_thread(macro.fetch_board)
-        except Exception:  # noqa: BLE001
-            pass
-        await asyncio.sleep(30)
-
-
-async def globe_loop() -> None:
-    """Keep the global markets board cache warm."""
-    while True:
-        try:
-            await asyncio.to_thread(globe.fetch_globe_markets)
-        except Exception:  # noqa: BLE001
-            pass
-        await asyncio.sleep(30)
+            await asyncio.to_thread(build)
+        except Exception as exc:  # noqa: BLE001
+            log.debug("warm %s failed: %s", label, exc)
+        await asyncio.sleep(every)
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     tasks = [
-        asyncio.create_task(simulator_loop()),
         asyncio.create_task(finnhub_loop()),
         asyncio.create_task(poll_loop()),
         asyncio.create_task(baseline_loop()),
         asyncio.create_task(fx_loop()),
-        asyncio.create_task(macro_loop()),
-        asyncio.create_task(globe_loop()),
+        *[asyncio.create_task(warm_loop(*w)) for w in WARM],
     ]
     try:
         yield
@@ -150,9 +169,10 @@ async def get_candles(symbol: str, tf: str = "1D"):
         raise HTTPException(404, f"Unknown symbol {symbol}")
     if tf not in TIMEFRAMES:
         raise HTTPException(400, f"Unknown timeframe {tf}")
-    # real history from Yahoo; fall back to the simulator if it is unavailable
+    # Real Yahoo history or nothing -- there is no synthetic fallback. An empty
+    # `points` list is the "no data" signal the chart renders.
     real = await asyncio.to_thread(providers.yahoo_candles, sym, tf)
-    return real or MARKET.candles(sym, tf)
+    return real or {"symbol": sym, "tf": tf, "points": []}
 
 
 @app.get("/api/orderbook/{symbol}")
@@ -211,7 +231,13 @@ async def macro_rrg():
 
 @app.get("/api/marketcap/{symbol}")
 async def get_marketcap(symbol: str):
-    return await asyncio.to_thread(macro.market_cap, symbol.upper())
+    sym = symbol.upper()
+    a = MARKET.assets.get(sym)
+    if not a:
+        return {"marketCap": None, "currency": None}
+    # currency/cat make the US-listed test independent of the symbol registry
+    return await asyncio.to_thread(
+        macro.market_cap, sym, a.get("currency", "USD"), a.get("cat", "EQ"))
 
 
 @app.get("/api/globe/markets")

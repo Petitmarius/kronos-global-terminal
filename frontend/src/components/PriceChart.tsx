@@ -9,10 +9,11 @@ import {
   type UTCTimestamp,
 } from 'lightweight-charts'
 
-import { fetchCandles } from '../api'
+import { addAsset, fetchCandles } from '../api'
 import { COLORS } from '../constants'
 import { bollinger, macd, rsi, sma, volume } from '../indicators'
 import { useStore } from '../store'
+import type { Candles } from '../types'
 import styles from './PriceChart.module.css'
 
 const T = (t: number) => t as UTCTimestamp
@@ -49,7 +50,9 @@ export default function PriceChart() {
   const chartType = useStore((s) => s.chartType)
   const digits = useStore((s) => s.assets[s.selected]?.digits ?? 2)
   const price = useStore((s) => s.assets[s.selected]?.price)
-  const pct = useStore((s) => s.assets[s.selected]?.pct ?? 0)
+  // No `?? 0` here: it would defeat the `badgePerf != null` guard below and
+  // print "1D +0.00%" for an instrument that has history but no live quote.
+  const pct = useStore((s) => s.assets[s.selected]?.pct)
 
   const mainRef = useRef<HTMLDivElement>(null)
   const rsiRef = useRef<HTMLDivElement>(null)
@@ -62,6 +65,8 @@ export default function PriceChart() {
   const firstCloseRef = useRef<number | null>(null)
   const upRef = useRef(true)
   const [rangePerf, setRangePerf] = useState<number | null>(null)
+  // Yahoo returned no history: say so instead of drawing an empty frame.
+  const [noData, setNoData] = useState(false)
 
   const showRSI = indicators.has('RSI')
   const showMACD = indicators.has('MACD')
@@ -71,10 +76,32 @@ export default function PriceChart() {
     let cancelled = false
     const charts: IChartApi[] = []
 
+    // The backend forgets custom symbols whenever it restarts, and /candles 404s
+    // for anything it does not know. Re-register from the saved meta and retry
+    // once so the chart heals itself instead of staying blank.
+    const loadCandles = async (): Promise<Candles | null> => {
+      try {
+        return await fetchCandles(selected, timeframe)
+      } catch {
+        const m = useStore.getState().customs[selected]
+        if (!m) return null
+        const a = await addAsset(m.yahoo ?? m.symbol, m.name, m.cat)
+        if (!a) return null
+        useStore.getState().registerAsset(a)
+        try {
+          return await fetchCandles(selected, timeframe)
+        } catch {
+          return null
+        }
+      }
+    }
+
     void (async () => {
-      const data = await fetchCandles(selected, timeframe)
-      if (cancelled || !mainRef.current) return
-      const pts = data.points
+      const data = await loadCandles()
+      if (cancelled) return
+      const pts = data?.points ?? []
+      setNoData(pts.length === 0)
+      if (pts.length === 0 || !mainRef.current) return
       const up = (useStore.getState().assets[selected]?.pct ?? 0) >= 0
       upRef.current = up
       chartTypeRef.current = chartType
@@ -179,7 +206,9 @@ export default function PriceChart() {
         ;(series as ISeriesApi<'Candlestick'>).update({ time: T(t), open: b.open, high: b.high, low: b.low, close: price })
       } else {
         ;(series as ISeriesApi<'Area'>).update({ time: T(t), value: price })
-        const up = pct >= 0
+        // Unknown direction keeps the colour it already had; defaulting to
+        // green would assert a move we cannot see.
+        const up = pct != null ? pct >= 0 : upRef.current
         if (up !== upRef.current) {
           upRef.current = up
           ;(series as ISeriesApi<'Area'>).applyOptions(neon(up))
@@ -195,7 +224,13 @@ export default function PriceChart() {
 
   return (
     <div className={styles.wrap}>
-      {badgePerf != null && (
+      {noData && (
+        <div className={styles.noData}>
+          <span className={styles.noDataTitle}>NO CHART DATA</span>
+          <span className={styles.noDataNote}>no history available for this market</span>
+        </div>
+      )}
+      {!noData && badgePerf != null && (
         <div className={`${styles.rangeBadge} ${badgePerf >= 0 ? 'pos' : 'neg'}`}>
           {timeframe} <b>{badgePerf >= 0 ? '+' : ''}{badgePerf.toFixed(2)}%</b>
         </div>

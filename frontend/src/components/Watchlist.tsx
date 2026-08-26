@@ -54,8 +54,13 @@ export default function Watchlist() {
 
   const onRemove = (e: MouseEvent, sym: string) => {
     e.stopPropagation()
+    const s = useStore.getState()
+    const held = s.positions.some((p) => p.symbol === sym) || s.pending.some((o) => o.symbol === sym)
     removeFromWatchlist(sym)
-    removeAsset(sym) // backend only drops it if it was a custom symbol
+    // Keep the BACKEND registration (and its price stream) while the symbol is
+    // still held: dropping it 404s /candles, so reopening the position from the
+    // POSITIONS table would land on an empty chart.
+    if (!held) removeAsset(sym) // backend only drops it if it was a custom symbol
   }
 
   return (
@@ -102,7 +107,7 @@ export default function Watchlist() {
           {rows.map((a) => (
             <div
               key={a.symbol}
-              className={`${styles.row} ${a.symbol === selected ? styles.on : ''}`}
+              className={`${styles.row} ${a.symbol === selected ? styles.on : ''} ${a.price == null ? styles.nodata : ''}`}
               onClick={() => select(a.symbol)}
             >
               <span className={styles.left}>
@@ -115,7 +120,7 @@ export default function Watchlist() {
               <span className={styles.right}>
                 <span className={styles.rprice}>{fmt(a.price, a.digits)}</span>
                 <span className={`${styles.rchg} ${signClass(a.pct)}`}>
-                  {arrow(a.pct)} {Math.abs(a.pct).toFixed(2)}%
+                  {a.pct == null ? 'NO DATA' : <>{arrow(a.pct)} {Math.abs(a.pct).toFixed(2)}%</>}
                 </span>
               </span>
               <button className={styles.remove} title="Remove" onClick={(e) => onRemove(e, a.symbol)}>

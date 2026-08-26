@@ -33,13 +33,26 @@ export default function CenterPanel() {
   const clearHistory = useStore((s) => s.clearHistory)
   const addAlert = useStore((s) => s.addAlert)
   const removeAlert = useStore((s) => s.removeAlert)
-  const select = useStore((s) => s.select)
+  const select = useStore((s) => s.selectAndWatch)
   const capital = useStore((s) => s.capital)
 
   const [tab, setTab] = useState<(typeof TABS)[number]>('POSITIONS')
   const [alertPrice, setAlertPrice] = useState('')
   const [mktCap, setMktCap] = useState<number | null>(null)
   const [expanded, setExpanded] = useState(false)
+  const [armCloseAll, setArmCloseAll] = useState(false)
+
+  // never leave CLOSE ALL armed once you navigate away or the book empties
+  useEffect(() => {
+    if (tab !== 'POSITIONS' || positions.length === 0) setArmCloseAll(false)
+  }, [tab, positions.length])
+
+  useEffect(() => {
+    if (!armCloseAll) return
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setArmCloseAll(false) }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [armCloseAll])
 
   useEffect(() => {
     setMktCap(null)
@@ -71,16 +84,22 @@ export default function CenterPanel() {
     ['LOW', fmt(st.low, dig)],
     ['PREV CLOSE', fmt(st.prevClose, dig)],
     ['VOLUME', st.volume ? fmtCompact(st.volume) : '—'],
-    ['SPREAD', String(st.spread)],
     ['52W HI', fmt(st.w52High, dig)],
     ['52W LO', fmt(st.w52Low, dig)],
   ]
 
+  // picking a symbol from a row also drops the maximized overlay, otherwise it
+  // keeps covering the very chart you just asked for
+  const pickSymbol = (symbol: string) => { select(symbol); setExpanded(false) }
+
   const activeAlerts = alerts.filter((a) => a.active).length
   const acct = computeAccount(positions, assets, history, capital)
+  // latent P&L the CLOSE ALL confirmation would realize
+  const latent = positions.reduce((t, p) => t + positionPnl(p, assets).pnl, 0)
   const submitAlert = () => {
     const p = parseFloat(alertPrice)
     if (Number.isNaN(p) || p <= 0) return
+    if (asset.price == null) return   // no reference price to compare against
     addAlert(selected, p, p >= asset.price ? 'above' : 'below')
     setAlertPrice('')
   }
@@ -95,23 +114,29 @@ export default function CenterPanel() {
               <span className={styles.sym}>{asset.symbol}</span>
               <span className={styles.badge}>{asset.cat}</span>
               {asset.currency !== 'USD' && <span className={styles.curBadge}>{asset.currency}</span>}
-              {asset.source === 'live' && <span className={styles.liveBadge}>● LIVE</span>}
+              {asset.source === 'live' && asset.price != null
+                ? <span className={styles.liveBadge}>● LIVE</span>
+                : <span className={styles.noDataBadge}>NO DATA</span>}
             </div>
             <div className={styles.full}>{asset.name}</div>
           </div>
           <div className={styles.bigprice}>
             <div data-testid="headline-price" className={`${styles.p} ${signClass(asset.pct)}`}>{fmt(asset.price, dig)}</div>
             <div className={`${styles.c} ${signClass(asset.pct)}`}>
-              {arrow(asset.pct)} {fmt(Math.abs(asset.change), dig)} ({fmtPct(asset.pct)})
+              {asset.price == null
+                ? 'awaiting market data'
+                : <>{arrow(asset.pct)} {fmt(asset.change == null ? null : Math.abs(asset.change), dig)} ({fmtPct(asset.pct)})</>}
             </div>
-            {asset.currency !== 'USD' && asset.usdRate !== 1 && (
+            {asset.price != null && asset.currency !== 'USD' && asset.usdRate !== 1 && (
               <div className={styles.usdConv}>≈ {fmtUsd(asset.price * asset.usdRate)}</div>
             )}
             {mktCap != null && <div className={styles.mcap}>MKT CAP <b>{fmtMcap(mktCap)}</b></div>}
           </div>
         </div>
 
-        <div className={styles.grid}>
+        {/* columns follow the cell count, so removing a stat can never leave a
+            bare strip of grid background where the 8th column used to be */}
+        <div className={styles.grid} style={{ gridTemplateColumns: `repeat(${grid.length}, 1fr)` }}>
           {grid.map(([k, v]) => (
             <div className={styles.cell} key={k}>
               <span className={styles.cellK}>{k}</span>
@@ -178,9 +203,18 @@ export default function CenterPanel() {
             )
           })}
           <span className={styles.tabSpacer} />
-          {tab === 'POSITIONS' && positions.length > 0 && (
-            <button className={styles.tabAction} onClick={closeAll}>CLOSE ALL</button>
-          )}
+          {tab === 'POSITIONS' && positions.length > 0 && (armCloseAll ? (
+            <div className={styles.confirmBar}>
+              <span className={styles.confirmMsg}>
+                Close {positions.length} position{positions.length > 1 ? 's' : ''} at market ·{' '}
+                <b className={signClass(latent)}>{fmtUsd(latent)}</b>
+              </span>
+              <button className={styles.confirmYes} onClick={() => { closeAll(); setArmCloseAll(false) }}>CONFIRM</button>
+              <button className={styles.confirmNo} onClick={() => setArmCloseAll(false)}>CANCEL</button>
+            </div>
+          ) : (
+            <button className={styles.tabAction} onClick={() => setArmCloseAll(true)}>CLOSE ALL</button>
+          ))}
           {(tab === 'TRADE LOG' || tab === 'ORDER HISTORY') && history.length + orders.length > 0 && (
             <button className={styles.tabAction} onClick={clearHistory}>CLEAR</button>
           )}
@@ -206,14 +240,16 @@ export default function CenterPanel() {
                   const { pnl, pct, current } = positionPnl(p, assets)
                   const sc = signClass(pnl)
                   return (
-                    <tr key={p.id} className={styles.clickRow} onClick={() => select(p.symbol)}>
+                    <tr key={p.id} className={styles.clickRow} onClick={() => pickSymbol(p.symbol)}>
                       <td className={styles.tsym}>{p.symbol}</td>
                       <td><span className={p.sign > 0 ? styles.tagBuy : styles.tagSell}>{p.dir}</span></td>
                       <td>{p.lots.toFixed(2)}</td>
                       <td>{fmt(p.entry, d)}</td>
                       <td>{fmt(current, d)}</td>
-                      <td className={sc}>{fmtUsd(pnl)}</td>
-                      <td className={sc}>{fmtPct(pct)}</td>
+                      {/* current == null means the position is UNMARKED, not flat.
+                          A green $0.00 / +0.00% would read as "no move today". */}
+                      <td className={current == null ? 'mut' : sc}>{current == null ? '—' : fmtUsd(pnl)}</td>
+                      <td className={current == null ? 'mut' : sc}>{current == null ? '—' : fmtPct(pct)}</td>
                       <td>{p.sl ? fmt(p.sl, d) : '—'}</td>
                       <td>{p.tp ? fmt(p.tp, d) : '—'}</td>
                       <td className="mut">{formatTime(p.openedAt)}</td>
@@ -231,19 +267,24 @@ export default function CenterPanel() {
           ) : (
             <table className={styles.table}>
               <thead>
-                <tr>{['SYMBOL', 'DIR', 'TYPE', 'TRIGGER', 'CURRENT', 'LOTS', 'STOP LOSS', 'TAKE PROFIT', 'PLACED', ''].map((h) => <th key={h}>{h}</th>)}</tr>
+                <tr>{['SYMBOL', 'DIR', 'TYPE', 'TRIGGER', 'CURRENT', 'DISTANCE', 'LOTS', 'STOP LOSS', 'TAKE PROFIT', 'PLACED', ''].map((h) => <th key={h}>{h}</th>)}</tr>
               </thead>
               <tbody>
                 {pending.map((o) => {
                   const d = assets[o.symbol]?.digits ?? 2
                   const cur = assets[o.symbol]?.price
+                  // how far the market still has to travel before this order triggers
+                  const dist = cur ? ((o.price - cur) / cur) * 100 : null
                   return (
-                    <tr key={o.id} className={styles.clickRow} onClick={() => select(o.symbol)}>
+                    <tr key={o.id} className={styles.clickRow} onClick={() => pickSymbol(o.symbol)}>
                       <td className={styles.tsym}>{o.symbol}</td>
                       <td><span className={o.sign > 0 ? styles.tagBuy : styles.tagSell}>{o.dir}</span></td>
                       <td className="amb">{o.type}</td>
                       <td>{fmt(o.price, d)}</td>
                       <td className="mut">{cur != null ? fmt(cur, d) : '—'}</td>
+                      <td className={dist == null ? 'mut' : dist < 0 ? 'neg' : dist > 0 ? 'pos' : 'amb'}>
+                        {dist == null ? '—' : `${dist < 0 ? '▼' : dist > 0 ? '▲' : ''} ${Math.abs(dist).toFixed(2)}%`}
+                      </td>
                       <td>{o.lots.toFixed(2)}</td>
                       <td>{o.sl ? fmt(o.sl, d) : '—'}</td>
                       <td>{o.tp ? fmt(o.tp, d) : '—'}</td>

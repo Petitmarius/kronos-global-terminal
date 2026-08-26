@@ -129,3 +129,33 @@
 .rpChart { height: 120px; margin: 8px 0 4px; position: relative; }
 .rpChartInner { position: absolute; inset: 0; }
 .rpEmpty { height: 90px; display: flex; align-items: center; justify-content: center; text-align: center; color: var(--dim); font: 600 10px/1.4 'JetBrains Mono', monospace; padding: 0 12px; }
+
+/* --- country book modal (portfolio mode) ---------------------------------- */
+.pmBackdrop { position: absolute; inset: 0; z-index: 40; background: rgba(0,0,0,.6); display: flex; align-items: center; justify-content: center; padding: 20px; }
+.pmModal { width: min(760px, 100%); max-height: 100%; background: rgba(10,14,19,.99); border: 1px solid var(--border); border-radius: 10px; display: flex; flex-direction: column; box-shadow: 0 24px 70px rgba(0,0,0,.7); overflow: hidden; }
+.pmHead { display: flex; align-items: baseline; gap: 10px; padding: 11px 13px; border-bottom: 1px solid var(--border); }
+.pmIso { font: 800 13px/1 'JetBrains Mono', monospace; color: #42A5F5; letter-spacing: 1px; }
+.pmName { font: 800 13px/1 'JetBrains Mono', monospace; color: #eef3f8; flex: 1; }
+.pmCount { font: 700 9px/1 'JetBrains Mono', monospace; letter-spacing: 1px; color: var(--dim); }
+.pmSummary { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1px; background: var(--border); border-bottom: 1px solid var(--border); }
+.pmBody { flex: 1; min-height: 0; overflow-y: auto; padding: 4px 13px 13px; }
+.pmEmpty { color: var(--dim); font: 700 11px/1.5 'JetBrains Mono', monospace; padding: 22px 8px; text-align: center; }
+
+.pmTable { width: 100%; border-collapse: collapse; font: 700 10.5px/1.2 'JetBrains Mono', monospace; }
+.pmTable th { font: 700 8px/1 'JetBrains Mono', monospace; letter-spacing: .8px; color: var(--dim); text-align: right; padding: 5px 8px; border-bottom: 1px solid var(--border); }
+.pmTable th:first-child, .pmTable td:first-child { text-align: left; }
+.pmTable td { padding: 6px 8px; text-align: right; color: #cfd8e3; border-bottom: 1px solid rgba(96,125,139,.12); font-variant-numeric: tabular-nums; }
+.pmRow { cursor: pointer; }
+.pmRow:hover td { background: rgba(66,165,245,.08); }
+.pmRow:hover .pmSym { color: #42A5F5; }
+.pmSym { font-weight: 800; color: #eef3f8; }
+/* an unmarked position: no live price, so no P&L colour to claim */
+.mut { color: var(--dim); }
+.pmBuy { color: #00E676; border: 1px solid rgba(0,230,118,.4); background: rgba(0,230,118,.08); padding: 1px 5px; border-radius: 3px; font-size: 9px; }
+.pmSell { color: #FF1744; border: 1px solid rgba(255,23,68,.4); background: rgba(255,23,68,.08); padding: 1px 5px; border-radius: 3px; font-size: 9px; }
+
+.pmClosed { display: grid; grid-template-columns: 1fr auto auto; gap: 12px; align-items: center; padding: 6px 8px; border-bottom: 1px solid rgba(96,125,139,.12); font: 700 10.5px/1.2 'JetBrains Mono', monospace; color: var(--dim); cursor: pointer; font-variant-numeric: tabular-nums; }
+.pmClosed:hover { background: rgba(66,165,245,.08); }
+.pmClosed:hover .pmSym { color: #42A5F5; }
+.pmTrades { font-size: 9.5px; }
+.pmFoot { padding: 8px 13px; border-top: 1px solid var(--border); font: 600 9px/1.4 'JetBrains Mono', monospace; color: var(--dim); text-align: center; }

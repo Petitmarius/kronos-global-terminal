@@ -1,87 +1,90 @@
-"""In-memory market state: live/simulated quotes, candles and depth-of-market."""
+"""In-memory market state: real quotes only, plus depth-of-market.
+
+Nothing here invents a price. An instrument starts with `price = None` and stays
+that way until a provider (Yahoo poll / Finnhub websocket) supplies a real one;
+the UI renders that absence as "no data". The only synthetic thing left is the
+depth-of-market ladder, which has no free L2 source and is derived from the real
+price (see `spread_for`).
+"""
 from __future__ import annotations
 
-import datetime
 import time
 
 import numpy as np
 
 import assets as assets_mod
 
-# per-tick simulator volatility by asset class
-_VOL = {"FX": 0.00025, "CRYPTO": 0.0014, "INDEX": 0.00045, "EQ": 0.0010, "CMD": 0.0007}
-# timeframe (= visible range) -> (points, seconds per bar, amplitude multiplier)
-# only used as a synthetic fallback when the real provider is unavailable
-_TF = {
-    "1D":  (78,  300,       0.15),   # ~1 trading day of 5-min bars
-    "1W":  (66,  1800,      0.40),
-    "1M":  (150, 3600,      0.80),
-    "3M":  (66,  86400,     1.10),
-    "6M":  (130, 86400,     1.40),
-    "YTD": (0,   86400,     1.40),   # points computed from Jan 1
-    "1Y":  (252, 86400,     1.80),
-    "5Y":  (260, 604800,    3.00),
-    "MAX": (240, 2592000,   4.50),   # ~20 years of monthly bars
-}
-TIMEFRAMES = list(_TF.keys())
+# Chart ranges. The bars themselves always come from Yahoo (providers.py) --
+# there is no synthetic fallback.
+TIMEFRAMES = ["1D", "1W", "1M", "3M", "6M", "YTD", "1Y", "5Y", "MAX"]
 
 
-def _seed(*parts) -> int:
-    return abs(hash("|".join(map(str, parts)))) % (2**32)
+def spread_for(price: float, digits: int) -> float:
+    """Quoted spread, scaled off the REAL price. Feeds the depth-of-market
+    ladder; recomputed on every stats refresh so it can never drift onto a
+    stale number."""
+    return round(max(price * 5e-4, 10 ** -digits), digits)
 
 
 class MarketState:
     def __init__(self) -> None:
-        self._rng = np.random.default_rng(7)
         self.assets: dict[str, dict] = {}
         for a in assets_mod.universe():
-            sym = a["symbol"]
-            rng = np.random.default_rng(_seed(sym, "stats"))
-            price, prev = a["price"], a["prev_close"]
-            span = abs(price) * 0.007 + 10 ** -a["digits"]
-            hi = max(price, prev) + rng.uniform(0.2, 1.0) * span
-            lo = min(price, prev) - rng.uniform(0.2, 1.0) * span
-            self.assets[sym] = {
+            self.assets[a["symbol"]] = {
                 **a,
-                "open": prev + rng.uniform(-0.3, 0.3) * span,
-                "high": hi, "low": lo,
+                "open": None, "high": None, "low": None,
                 "w52high": None, "w52low": None, "volume": None,
-                "spread": round(span * 0.05, max(1, a["digits"] - 1)),
-                "source": "sim",
+                "spread": None,
+                "source": "none",   # 'none' until a provider delivers a real price
                 "pc_real": False,   # True once a real previous close is known
                 "usd_rate": 1.0,
             }
 
     # -- quote helpers -----------------------------------------------------
     def _quote(self, a: dict) -> dict:
-        change = a["price"] - a["prev_close"]
-        pct = change / a["prev_close"] * 100 if a["prev_close"] else 0.0
+        """A quote with no real price carries price/change/pct = None. The client
+        renders that as "no data" -- it never substitutes a placeholder number."""
+        price, prev = a["price"], a["prev_close"]
         d = a["digits"]
+        if price is None:
+            change = pct = None
+        else:
+            change = price - prev if prev else None
+            pct = round(change / prev * 100, 2) if change is not None and prev else None
+            change = round(change, d) if change is not None else None
         w52h, w52l, vol = a.get("w52high"), a.get("w52low"), a.get("volume")
         return {
-            "symbol": a["symbol"], "price": round(a["price"], d),
-            "change": round(change, d), "pct": round(pct, 2),
+            "symbol": a["symbol"], "price": round(price, d) if price is not None else None,
+            "change": change, "pct": pct,
             "source": a["source"], "ts": int(time.time() * 1000),
             "usdRate": a.get("usd_rate", 1.0),
             "w52High": round(w52h, d) if w52h is not None else None,
             "w52Low": round(w52l, d) if w52l is not None else None,
             "volume": round(vol) if vol is not None else None,
+            # The MARKET DATA grid. These used to travel only in the one-shot
+            # `snapshot` frame, so a page opened before the first Yahoo poll (or
+            # during a throttle) showed "—" for the whole session with no way to
+            # recover short of a reload.
+            "open": round(a["open"], d) if a.get("open") is not None else None,
+            "high": round(a["high"], d) if a.get("high") is not None else None,
+            "low": round(a["low"], d) if a.get("low") is not None else None,
+            "prevClose": round(prev, d) if prev is not None else None,
+            "spread": a.get("spread"),
         }
 
     def asset_dict(self, a: dict) -> dict:
         q = self._quote(a)
+        d = a["digits"]
+        rnd = lambda v: round(v, d) if v is not None else None   # noqa: E731
         return {
-            **q, "name": a["name"], "cat": a["cat"], "digits": a["digits"],
+            **q, "name": a["name"], "cat": a["cat"], "digits": d,
             "contract": a["contract"],
             "currency": a.get("currency", "USD"),
             "usdRate": a.get("usd_rate", 1.0),
             "stats": {
-                "open": round(a["open"], a["digits"]),
-                "high": round(a["high"], a["digits"]),
-                "low": round(a["low"], a["digits"]),
-                "prevClose": round(a["prev_close"], a["digits"]),
-                "w52High": round(a["w52high"], a["digits"]) if a.get("w52high") is not None else None,
-                "w52Low": round(a["w52low"], a["digits"]) if a.get("w52low") is not None else None,
+                "open": rnd(a["open"]), "high": rnd(a["high"]), "low": rnd(a["low"]),
+                "prevClose": rnd(a["prev_close"]),
+                "w52High": rnd(a.get("w52high")), "w52Low": rnd(a.get("w52low")),
                 "volume": round(a["volume"]) if a.get("volume") is not None else None,
                 "spread": a["spread"],
             },
@@ -95,18 +98,22 @@ class MarketState:
         a = self.assets.get(symbol)
         if not a or price <= 0:
             return None
-        # First live tick on a symbol with no real previous close: anchor the
-        # baseline to it so the % change starts near 0 instead of comparing a
-        # real price against a stale seeded close (which produced absurd %).
-        if not a["pc_real"] and a["source"] == "sim":
+        # First real tick on a symbol with no previous close yet: anchor the
+        # baseline to it so the day % starts at 0 rather than dividing by None.
+        # baseline_loop replaces it with the true previous close shortly after.
+        # One-shot, keyed on `prev_close` alone. Keying it on `pc_real` re-ran the
+        # anchor on EVERY tick until Yahoo delivered a real close, which pinned the
+        # day change at +0.00% and collapsed high/low onto the last price -- the
+        # permanent state of a Finnhub-streamed pair while Yahoo is throttling us.
+        if a["prev_close"] is None:
             a["prev_close"] = price
-            a["open"] = price
-            a["high"] = price
-            a["low"] = price
+            a["open"] = a["open"] if a["open"] is not None else price
+            a["high"] = a["low"] = price
         a["price"] = price
         a["source"] = "live"
-        a["high"] = max(a["high"], price)
-        a["low"] = min(a["low"], price)
+        a["high"] = max(a["high"] if a["high"] is not None else price, price)
+        a["low"] = min(a["low"] if a["low"] is not None else price, price)
+        a["spread"] = spread_for(price, a["digits"])
         return self._quote(a)
 
     def apply_stats(self, symbol: str, price: float, prev_close: float,
@@ -131,6 +138,7 @@ class MarketState:
             a["volume"] = volume
         a["pc_real"] = True
         a["source"] = "live"
+        a["spread"] = spread_for(price, a["digits"])
         return self._quote(a)
 
     def apply_baseline(self, symbol: str, price: float, prev_close: float,
@@ -146,10 +154,14 @@ class MarketState:
         a["prev_close"] = prev_close
         if open_ and open_ > 0:
             a["open"] = open_
+        # None-safe: on an instrument that never received a tick, high/low/price
+        # are all still unknown -- fold in only the values we actually have.
         if high:
-            a["high"] = max(a["high"], high, a["price"])
+            known = [v for v in (a["high"], a["price"], high) if v is not None]
+            a["high"] = max(known)
         if low:
-            a["low"] = min(a["low"], low) if a["low"] else low
+            known = [v for v in (a["low"], a["price"], low) if v is not None]
+            a["low"] = min(known)
         if w52high is not None:
             a["w52high"] = w52high
         if w52low is not None:
@@ -157,25 +169,12 @@ class MarketState:
         if volume is not None:
             a["volume"] = volume
         a["pc_real"] = True
-        if a["source"] == "sim" and price > 0:   # not yet streaming: bootstrap
-            a["price"] = price
-            a["source"] = "live"
+        if price > 0:
+            a["spread"] = spread_for(price, a["digits"])
+            if a["source"] != "live":   # not yet streaming: bootstrap off the poll
+                a["price"] = price
+                a["source"] = "live"
         return self._quote(a)
-
-    def sim_step(self) -> list[dict]:
-        """Advance every simulated asset one mean-reverting random-walk step."""
-        out = []
-        for a in self.assets.values():
-            if a["source"] == "live":
-                continue
-            vol = _VOL.get(a["cat"], 0.0006)
-            shock = float(self._rng.normal(0, vol))
-            revert = (a["prev_close"] - a["price"]) / a["prev_close"] * 0.015
-            a["price"] = max(a["price"] * (1 + revert + shock), 10 ** -a["digits"])
-            a["high"] = max(a["high"], a["price"])
-            a["low"] = min(a["low"], a["price"])
-            out.append(self._quote(a))
-        return out
 
     def register(self, symbol: str, name: str, cat: str, digits: int,
                  contract: float, quote: dict, currency: str = "USD",
@@ -190,7 +189,7 @@ class MarketState:
             "low": min(quote.get("low") or price, price),
             "w52high": quote.get("w52high"), "w52low": quote.get("w52low"),
             "volume": quote.get("volume"),
-            "spread": round(max(price * 5e-4, 10 ** -digits), max(1, digits - 1)),
+            "spread": spread_for(price, digits),
             "source": "live", "pc_real": True, "custom": True,
             "currency": currency, "usd_rate": usd_rate,
         }
@@ -210,47 +209,20 @@ class MarketState:
         a["usd_rate"] = rate
         return self._quote(a)
 
-    # -- chart / depth -----------------------------------------------------
-    def candles(self, symbol: str, tf: str) -> dict:
-        a = self.assets[symbol]
-        n, step, vmul = _TF.get(tf, _TF["1D"])
-        digits = a["digits"]
-        if tf == "YTD":
-            jan1 = datetime.datetime(datetime.datetime.utcnow().year, 1, 1)
-            n = max((datetime.datetime.utcnow() - jan1).days, 20)
-
-        rng = np.random.default_rng(_seed(symbol, tf))
-        price = a["price"]
-
-        # A linear trend from an older `start` price to "now", plus a detrended
-        # random walk whose amplitude is always a visible fraction of price.
-        # (The previous version added a correction ramp that could swamp the
-        # noise and flatten the line — that is what produced the linear charts.)
-        net = price * 0.05 * vmul * (1 if rng.random() > 0.45 else -1) * rng.uniform(0.5, 1.4)
-        amp = price * 0.018 * vmul
-        start = max(price - net, 10 ** -digits)
-        base = np.linspace(start, price, n)
-
-        walk = np.cumsum(rng.normal(0, 1, n))
-        walk -= np.linspace(walk[0], walk[-1], n)          # zero drift at both ends
-        peak = float(np.max(np.abs(walk))) or 1.0
-        walk = walk / peak * amp
-        series = np.maximum(base + walk, 10 ** -digits)
-        series[-1] = price                                  # pin to the live price
-
-        now = int(time.time())
-        now -= now % step
-        points = [{"time": now - (n - 1 - i) * step, "value": round(float(series[i]), digits)}
-                  for i in range(n)]
-        return {"symbol": symbol, "tf": tf, "points": points}
-
+    # -- depth of market ---------------------------------------------------
     def orderbook(self, symbol: str, levels: int = 6) -> dict:
+        """Synthetic depth: no free L2 feed exists for any of these instruments.
+        Derived from the real price + `spread_for`, so the ladder always brackets
+        the true market. Returns empty rungs while the price is still unknown."""
         a = self.assets[symbol]
-        digits = a["digits"]
-        rng = np.random.default_rng(_seed(symbol, "book", int(time.time() / 2)))
-        tick = max(10 ** -digits, a["price"] * 5e-5)
-        spread = tick * rng.uniform(1.5, 4.0)
-        bid, ask = a["price"] - spread / 2, a["price"] + spread / 2
+        digits, price = a["digits"], a["price"]
+        if price is None:
+            return {"symbol": symbol, "bid": None, "ask": None, "spread": None,
+                    "asks": [], "bids": [], "maxSize": 1, "digits": digits}
+        rng = np.random.default_rng(abs(hash((symbol, int(time.time() / 2)))) % (2**32))
+        tick = max(10 ** -digits, price * 5e-5)
+        spread = a["spread"] or tick * 2
+        bid, ask = price - spread / 2, price + spread / 2
         step = ask - bid if ask > bid else tick
 
         asks, bids, cum = [], [], 0.0

@@ -1,4 +1,7 @@
-.placeholder { flex: 1; display: flex; align-items: center; justify-content: center; color: var(--dim); }
+.placeholder { flex: 1; display: flex; flex-direction: column; gap: 5px;
+  align-items: center; justify-content: center; color: var(--dim); }
+.phTitle { font-size: 10px; font-weight: 700; letter-spacing: 1.4px; color: var(--muted); }
+.phNote { font-size: 9px; letter-spacing: .3px; }
 
 /* ---- depth of market --------------------------------------------------- */
 .dom { padding: 7px 9px; flex: 0 1 auto; min-height: 0; overflow: hidden; }
@@ -34,6 +37,11 @@
 .fieldRow { display: flex; gap: 8px; }
 .field { flex: 1; }
 .hint { font-size: 9px; color: var(--dim); letter-spacing: .3px; margin: 4px 0 2px; }
+
+/* distance between the market and a LIMIT/STOP trigger */
+.dist { display: flex; align-items: baseline; gap: 6px; margin: 5px 0 0; }
+.distV { font-size: 12px; font-weight: 700; font-variant-numeric: tabular-nums; }
+.distNote { font-size: 9px; color: var(--dim); letter-spacing: .3px; }
 
 .risk { display: flex; gap: 1px; background: var(--border); border: 1px solid var(--border); border-radius: 6px; overflow: hidden; margin: 8px 0; }
 .riskCell { flex: 1; background: var(--panel-2); padding: 7px 6px; display: flex; flex-direction: column; align-items: center; gap: 2px; }

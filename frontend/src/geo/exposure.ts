@@ -70,8 +70,11 @@ export function buildExposure(
     const hasRate = p.entryRate != null
     const curRate = hasRate ? (a?.usdRate ?? 1) : 1
     const entRate = p.entryRate ?? 1
-    const notional = (a?.price ?? p.entry) * p.lots * (a?.contract ?? 1) * curRate
-    const latent = a ? (a.price * curRate - p.entry * entRate) * p.sign * p.lots * a.contract : 0
+    // With no live price the position still has exposure (valued at entry) but
+    // cannot be marked -- latent P&L stays 0 rather than becoming a guess.
+    const priced = a && a.price != null ? a.price : null
+    const notional = (priced ?? p.entry) * p.lots * (a?.contract ?? 1) * curRate
+    const latent = priced != null && a ? (priced * curRate - p.entry * entRate) * p.sign * p.lots * a.contract : 0
     const iso = resolveIso(p.symbol, customs, indexMap, assets)
     if (iso) {
       const c = ensure(iso)

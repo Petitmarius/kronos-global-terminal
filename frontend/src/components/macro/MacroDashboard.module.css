@@ -60,7 +60,11 @@
 .tileK { font: 700 9px/1 'JetBrains Mono', monospace; letter-spacing: 1px; color: var(--dim); }
 .tileV { font: 800 18px/1.2 'JetBrains Mono', monospace; color: #eef3f8; margin-top: 4px; }
 .tileSub { font: 700 10px/1 'JetBrains Mono', monospace; margin-top: 3px; }
-.curveHead { margin-bottom: 6px; }
+.curveHead { margin-bottom: 6px; display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+/* provenance of the curve — it is an official close, not a live quote */
+.curveAsOf { font: 700 9px/1 'JetBrains Mono', monospace; letter-spacing: .5px; color: var(--dim); white-space: nowrap; }
+/* period marker under a tile whose value is not today's print */
+.tileNote { font: 700 9px/1 'JetBrains Mono', monospace; letter-spacing: .5px; color: var(--dim); margin-top: 3px; }
 .curvePlot { position: absolute; left: 12px; right: 12px; top: 40px; bottom: 10px; }
 .curveSvg { position: absolute; inset: 0; width: 100%; height: 100%; }
 .curveYlbl {

@@ -1,5 +1,6 @@
 import { useRef, useState, type MouseEvent } from 'react'
 
+import { fmtIsoDate } from '../../../format'
 import type { MacroCurve } from '../../../types'
 import styles from '../MacroDashboard.module.css'
 
@@ -10,10 +11,13 @@ export default function YieldCurvePanel({ curve }: { curve: MacroCurve | null })
   const plotRef = useRef<HTMLDivElement>(null)
   const [hover, setHover] = useState<number | null>(null)
 
-  if (!curve || !curve.available || curve.points.length < 2) {
-    return <div className={styles.empty}>Add a free FRED key to backend/.env<br />(FRED_API_KEY=…) to load the yield curve.</div>
+  if (!curve) return <div className={styles.empty}>loading…</div>
+  if (!curve.available || curve.points.length < 2) {
+    // Treasury needs no key, so this is a real outage, not a missing config.
+    return <div className={styles.empty}>NO CURVE DATA<br />treasury.gov unreachable — retrying</div>
   }
   const pts = curve.points
+  const bp = curve.spread2s10s != null ? Math.round(curve.spread2s10s * 100) : null
   const xs = pts.map((p) => Math.log(p.months))
   const xmin = Math.min(...xs), xmax = Math.max(...xs)
   const ys = pts.map((p) => p.yield)
@@ -41,9 +45,11 @@ export default function YieldCurvePanel({ curve }: { curve: MacroCurve | null })
     <>
       <div className={styles.curveHead}>
         <span className={`${styles.badge} ${curve.inverted ? styles.badgeInv : styles.badgeOk}`}>
-          2s10s {curve.spread2s10s != null ? `${curve.spread2s10s > 0 ? '+' : ''}${curve.spread2s10s}%` : '—'}
+          {/* a gap between two yields is basis points, not a percentage */}
+          2s10s {bp != null ? `${bp > 0 ? '+' : ''}${bp} bp` : '—'}
           {curve.inverted ? ' · INVERTED' : ''}
         </span>
+        <span className={styles.curveAsOf}>{curve.source} · {fmtIsoDate(curve.asOf)}</span>
       </div>
       <div className={styles.curvePlot} ref={plotRef} onMouseMove={onMove} onMouseLeave={() => setHover(null)}>
         <svg className={styles.curveSvg} viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none">

@@ -13,6 +13,7 @@ import json
 import time
 import urllib.parse
 import urllib.request
+from concurrent.futures import ThreadPoolExecutor
 
 # our symbol -> Yahoo symbol
 YAHOO_MAP = {
@@ -56,6 +57,16 @@ def _get(url: str, timeout: float = 8.0) -> dict:
         return json.loads(r.read().decode())
 
 
+# `_get` raises TRANSPORT errors, not shape errors, and the two need catching
+# together. A dead symbol 404s, a throttled client gets 429 -- both HTTPError,
+# which derives from OSError like URLError does; a read timeout is TimeoutError
+# (also OSError); an HTML error page decodes as ValueError. Catching only the
+# shape errors let every one of those escape into FastAPI as a 500, which is the
+# opposite of this app's contract: an instrument nobody can price reads as
+# "no data", never as a crashed panel.
+_PROVIDER_ERRORS = (KeyError, IndexError, TypeError, OSError, ValueError)
+
+
 def _chart(ysym: str, interval: str, rng: str) -> dict:
     url = f"{_BASE}{urllib.parse.quote(ysym, safe='')}?interval={interval}&range={rng}"
     return _get(url)
@@ -73,7 +84,7 @@ def _candles_from_chart(ysym: str, tf: str) -> list[dict] | None:
         highs = q.get("high", [])
         lows = q.get("low", [])
         vols = q.get("volume", [])
-    except (KeyError, IndexError, TypeError):
+    except _PROVIDER_ERRORS:
         return None
 
     points = []
@@ -162,12 +173,95 @@ def yahoo_quote_raw(ysym: str) -> dict | None:
         return _raw_quote_cache[ysym][1]
     try:
         meta = _chart(ysym, "1d", "1d")["chart"]["result"][0]["meta"]
-    except (KeyError, IndexError, TypeError):
+    except _PROVIDER_ERRORS:
         return _raw_quote_cache.get(ysym, (0, None))[1]  # stale fallback
     q = quote_from_meta(meta)
     if q:
         _raw_quote_cache[ysym] = (now, q)
     return q
+
+
+# --- Batched quotes (Yahoo /v8/finance/spark) --------------------------------
+
+# One request carries many symbols, which is what the macro and world boards
+# need: 37 symbols cost 4.3s fetched one by one and 0.11s batched. Spark returns
+# only the close series and the previous close -- no OHLC, no 52-week range, no
+# volume -- so it feeds those boards and never the terminal's quote path.
+_SPARK = "https://query1.finance.yahoo.com/v8/finance/spark"
+_SPARK_MAX = 18          # 25 symbols answers HTTP 400; 20 is the observed ceiling
+_SPARK_WORKERS = 4
+
+
+def _chunks(seq: list, n: int) -> "list[list]":
+    return [seq[i:i + n] for i in range(0, len(seq), n)]
+
+
+def spark_quotes(payload) -> dict[str, dict]:
+    """A spark response -> {symbol: {price, prevClose, pct}}.
+
+    `previousClose` is frequently null in the live payload and the usable value
+    sits in `chartPreviousClose`, so both are tried.
+
+    A symbol whose close series is empty or all-null is left OUT rather than
+    zeroed, so the caller retries it on its own: thin or closed markets (^IPSA,
+    IMOEX.ME) come back empty here while the per-symbol chart endpoint answers.
+    """
+    out: dict[str, dict] = {}
+    if not isinstance(payload, dict):
+        return out
+    for sym, v in payload.items():
+        if not isinstance(v, dict):
+            continue
+        closes = v.get("close")
+        if not isinstance(closes, (list, tuple)):
+            continue
+        price = next((float(c) for c in reversed(closes)
+                      if isinstance(c, (int, float)) and not isinstance(c, bool)), None)
+        prev = v.get("previousClose") or v.get("chartPreviousClose")
+        if price is None or not isinstance(prev, (int, float)) or isinstance(prev, bool) or not prev:
+            continue
+        prev = float(prev)
+        out[sym] = {"price": price, "prevClose": prev, "pct": (price / prev - 1.0) * 100.0}
+    return out
+
+
+def _spark_fetch(symbols: list[str]) -> dict:
+    q = urllib.parse.quote(",".join(symbols), safe="")
+    return _get(f"{_SPARK}?symbols={q}&range=1d&interval=1d")
+
+
+def _spark_safe(symbols: list[str]) -> dict:
+    try:
+        return _spark_fetch(symbols)
+    except Exception:  # noqa: BLE001 -- a dead batch degrades to the per-symbol path
+        return {}
+
+
+def yahoo_quotes_batch(symbols: list[str]) -> dict[str, dict]:
+    """Quotes for many Yahoo symbols in a handful of requests instead of one each.
+
+    Anything the batch cannot price falls back to the per-symbol chart endpoint,
+    so neither a spark outage nor a thin market blanks a board. A symbol no
+    source can price is simply absent from the result -- never a zero.
+    """
+    syms = list(dict.fromkeys(symbols))
+    out: dict[str, dict] = {}
+    batches = _chunks(syms, _SPARK_MAX)
+    if batches:
+        with ThreadPoolExecutor(max_workers=min(len(batches), _SPARK_WORKERS)) as ex:
+            for payload in ex.map(_spark_safe, batches):
+                out.update(spark_quotes(payload))
+    # Kept deliberately narrow: the fallback exists for the handful of thin
+    # markets spark cannot price, but it is also what a total spark outage lands
+    # on, and that is 79 chart requests per warm cycle. Same width as the batch
+    # path so a degraded cycle is no burstier than a healthy one.
+    gaps = [s for s in syms if s not in out]
+    if gaps:
+        with ThreadPoolExecutor(max_workers=min(len(gaps), _SPARK_WORKERS)) as ex:
+            for sym, q in zip(gaps, ex.map(yahoo_quote_raw, gaps)):
+                if q:
+                    out[sym] = q
+    return out
 
 
 _fx_cache: dict[str, tuple[float, float]] = {}   # currency -> (ts, rate)
@@ -206,7 +300,7 @@ def yahoo_quote(symbol: str) -> dict | None:
         # a multi-day-old close).
         res = _chart(ysym, "1d", "1d")["chart"]["result"][0]
         meta = res["meta"]
-    except (KeyError, IndexError, TypeError):
+    except _PROVIDER_ERRORS:
         return None
 
     price = meta.get("regularMarketPrice")

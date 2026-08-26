@@ -1,14 +1,17 @@
-export type Source = 'sim' | 'live'
+// 'none' = no provider has delivered a real price yet; the UI shows "no data".
+export type Source = 'none' | 'live'
 
 export interface Stats {
-  open: number
-  high: number
-  low: number
-  prevClose: number
+  open: number | null
+  high: number | null
+  low: number | null
+  prevClose: number | null
   w52High: number | null
   w52Low: number | null
   volume: number | null
-  spread: number
+  /** Quoted spread, derived from the real price. Feeds the depth-of-market
+   *  ladder, which has no free L2 source. Null until a price is known. */
+  spread: number | null
 }
 
 export interface Asset {
@@ -17,9 +20,10 @@ export interface Asset {
   cat: string
   digits: number
   contract: number
-  price: number
-  change: number
-  pct: number
+  /** null until a provider delivers a real price -- never a placeholder value. */
+  price: number | null
+  change: number | null
+  pct: number | null
   source: Source
   ts: number
   currency: string
@@ -29,15 +33,23 @@ export interface Asset {
 
 export interface Quote {
   symbol: string
-  price: number
-  change: number
-  pct: number
+  price: number | null
+  change: number | null
+  pct: number | null
   source: Source
   ts: number
   usdRate?: number
   w52High?: number | null
   w52Low?: number | null
   volume?: number | null
+  /** MARKET DATA grid, streamed on every tick. Before these travelled with the
+   *  quote they arrived only in the one-shot snapshot, so a client that
+   *  connected before the first Yahoo poll showed `—` for the whole session. */
+  open?: number | null
+  high?: number | null
+  low?: number | null
+  prevClose?: number | null
+  spread?: number | null
 }
 
 export interface CandlePoint {
@@ -201,11 +213,16 @@ export interface CountryDetail {
 }
 export interface EconSeries {
   key: string; label: string; value: number | null; prior: number | null; unit: string; spark: number[]
+  /** Observation date (not publication date) — FEDFUNDS is a monthly average. */
+  period: string | null
 }
 export interface MacroEcon { available: boolean; series: EconSeries[] }
 export interface CurvePoint { label: string; months: number; yield: number }
 export interface MacroCurve {
   available: boolean; points: CurvePoint[]; spread2s10s: number | null; inverted: boolean
+  /** 'US TREASURY' (primary) or 'FRED' (fallback), and the session the curve
+   *  is dated to — shown in the UI so it is never read as a live quote. */
+  source: string | null; asOf: string | null
 }
 export interface Release {
   series: string; label: string; value: number | null; unit: string; period: string; updated: string

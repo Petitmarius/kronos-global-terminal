@@ -78,7 +78,12 @@ export default function CountryPanel(
             {onPickIndex && <span className={styles.cpIndexGo}>↗ Terminal</span>}
           </div>
           <div className={styles.cpChart}>
-            <div ref={ref} className={styles.cpChartInner} />
+            {/* Yahoo serves a quote but no history for a few thin markets
+                (^IPSA, IMOEX.ME). Say so, the way every other panel does,
+                instead of leaving a blank 90px gap. */}
+            {d.index.points.length > 1
+              ? <div ref={ref} className={styles.cpChartInner} />
+              : <div className={styles.empty}>NO CHART DATA</div>}
             {tip && <div className={styles.chartTip} style={{ left: tip.x, top: tip.y }}>{tip.v.toFixed(2)}</div>}
           </div>
           {d.fx && <div className={styles.cpFx}>FX {d.fx.pair.replace('=X', '')} · {d.fx.level} <span className={d.fx.pct >= 0 ? styles.pos : styles.neg}>{d.fx.pct >= 0 ? '+' : ''}{d.fx.pct}%</span></div>}

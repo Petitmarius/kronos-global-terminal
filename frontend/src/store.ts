@@ -59,13 +59,31 @@ function fxRates(p: Position, a: Asset | undefined): { curRate: number; entRate:
   return { curRate: hasRate ? (a?.usdRate ?? 1) : 1, entRate: p.entryRate ?? 1 }
 }
 
+// An asset with no provider price must never move money: no stop, no limit fill,
+// no alert. `price` is null until Yahoo/Finnhub deliver a real one -- nothing in
+// the app substitutes a placeholder. Also narrows price to non-null for callers.
+type Priced = Asset & { price: number }
+function isLive(a: Asset | undefined): a is Priced {
+  return !!a && a.source === 'live' && a.price != null
+}
+
+// P&L % is a return on the position's NOTIONAL at entry, not on the margin --
+// so the column always matches the ENTRY -> CURRENT move (a +1% price move on a
+// long reads +1%, whatever the leverage). Same units as pnl: USD when the
+// position carries entryRate, local currency for legacy ones.
+function entryNotional(p: Position, contract: number, entRate: number): number {
+  return Math.abs(p.entry * entRate * p.lots * contract)
+}
+
 function buildClosed(p: Position, exit: number, reason: CloseReason, contract: number, exitRate: number): ClosedTrade {
   const hasRate = p.entryRate != null
   const er = hasRate ? exitRate : 1
-  const pnl = (exit * er - p.entry * (p.entryRate ?? 1)) * p.sign * p.lots * contract
+  const entRate = hasRate ? (p.entryRate ?? 1) : 1
+  const pnl = (exit * er - p.entry * entRate) * p.sign * p.lots * contract
+  const notional = entryNotional(p, contract, entRate)
   return {
     id: uid(), symbol: p.symbol, dir: p.dir, sign: p.sign, lots: p.lots,
-    entry: p.entry, exit, pnl, pnlPct: p.margin ? (pnl / p.margin) * 100 : 0,
+    entry: p.entry, exit, pnl, pnlPct: notional ? (pnl / notional) * 100 : 0,
     openedAt: p.openedAt, closedAt: Date.now(), reason,
   }
 }
@@ -106,6 +124,7 @@ interface Store {
   registerAsset: (asset: Asset) => void
   setConnected: (c: boolean) => void
   select: (symbol: string) => void
+  selectAndWatch: (symbol: string) => void
   setTimeframe: (tf: string) => void
   toggleIndicator: (name: string) => void
   setCategory: (cat: string) => void
@@ -175,7 +194,7 @@ export const useStore = create<Store>((set) => ({
       const assets = { ...s.assets }
       for (const q of quotes) {
         const cur = assets[q.symbol]
-        if (cur) assets[q.symbol] = { ...cur, price: q.price, change: q.change, pct: q.pct, source: q.source, ts: q.ts, usdRate: q.usdRate ?? cur.usdRate, stats: { ...cur.stats, w52High: q.w52High ?? cur.stats.w52High, w52Low: q.w52Low ?? cur.stats.w52Low, volume: q.volume ?? cur.stats.volume } }
+        if (cur) assets[q.symbol] = { ...cur, price: q.price, change: q.change, pct: q.pct, source: q.source, ts: q.ts, usdRate: q.usdRate ?? cur.usdRate, stats: { ...cur.stats, w52High: q.w52High ?? cur.stats.w52High, w52Low: q.w52Low ?? cur.stats.w52Low, volume: q.volume ?? cur.stats.volume, open: q.open ?? cur.stats.open, high: q.high ?? cur.stats.high, low: q.low ?? cur.stats.low, prevClose: q.prevClose ?? cur.stats.prevClose, spread: q.spread ?? cur.stats.spread } }
       }
 
       const notices: Notice[] = []
@@ -187,7 +206,11 @@ export const useStore = create<Store>((set) => ({
       const survivors: Position[] = []
       for (const p of s.positions) {
         const a = assets[p.symbol]
-        if (!a) {
+        // Only ever act on a REAL price. An instrument carries price = null until
+        // a provider delivers one, and the backend no longer invents a stand-in
+        // (it used to seed a hardcoded 2024 mark, which stopped out longs and
+        // filled buy limits at levels the market never traded).
+        if (!isLive(a)) {
           survivors.push(p)
           continue
         }
@@ -215,7 +238,7 @@ export const useStore = create<Store>((set) => ({
       const filled: Position[] = []
       for (const o of s.pending) {
         const a = assets[o.symbol]
-        if (!a) {
+        if (!isLive(a)) {   // a simulated tick must never trigger a fill
           stillPending.push(o)
           continue
         }
@@ -237,7 +260,7 @@ export const useStore = create<Store>((set) => ({
         alerts = alerts.map((al) => {
           if (!al.active) return al
           const a = assets[al.symbol]
-          if (!a) return al
+          if (!isLive(a)) return al
           const crossed = al.cond === 'above' ? a.price >= al.price : a.price <= al.price
           if (crossed) {
             notices.push({ id: uid(), kind: 'ALERT', text: `${al.symbol} ${al.cond} ${al.price}`, ts: Date.now() })
@@ -259,6 +282,18 @@ export const useStore = create<Store>((set) => ({
   setView: (view) => { saveLS(LS_VIEW, view); set({ view }) },
   setChartType: (chartType) => { saveLS(LS_CHARTTYPE, chartType); set({ chartType }) },
   select: (selected) => set({ selected }),
+
+  // Click-through from POSITIONS / PENDING / the Global Map. The symbol may have
+  // been dropped from the watchlist since the trade was opened, which would leave
+  // the Terminal blank -- put it back so the chart always has something to draw.
+  selectAndWatch: (symbol) =>
+    set((s) => {
+      if (s.watchlist.includes(symbol)) return { selected: symbol }
+      const watchlist = [...s.watchlist, symbol]
+      saveLS(LS_WL, watchlist)
+      return { selected: symbol, watchlist }
+    }),
+
   setTimeframe: (timeframe) => set({ timeframe }),
   toggleIndicator: (name) =>
     set((s) => {
@@ -285,7 +320,11 @@ export const useStore = create<Store>((set) => ({
     set((s) => {
       const watchlist = s.watchlist.filter((x) => x !== symbol)
       let customs = s.customs
-      if (customs[symbol]) {
+      // Keep the custom meta while the symbol is still held: it is the only thing
+      // that lets App re-register (and re-stream) it after a reload, so clicking
+      // the position back open in the Terminal still resolves to a live asset.
+      const held = s.positions.some((p) => p.symbol === symbol) || s.pending.some((o) => o.symbol === symbol)
+      if (customs[symbol] && !held) {
         customs = { ...s.customs }
         delete customs[symbol]
         saveLS(LS_CUSTOM, customs)
@@ -333,8 +372,14 @@ export const useStore = create<Store>((set) => ({
       const p = s.positions.find((x) => x.id === id)
       if (!p) return {}
       const a = s.assets[p.symbol]
-      const exit = a ? a.price : p.entry
-      const ct = buildClosed(p, exit, reason, a?.contract ?? 1, a?.usdRate ?? 1)
+      // No price -> close flat, never at a guess. That has to hold for the FX
+      // leg too: closing at `entry` while marking the exit at TODAY's usdRate
+      // books a pure-FX P&L on a position that was never marked, and reports a
+      // number the CLOSE ALL preview (which counts it as 0) never predicted.
+      const live = isLive(a)
+      const exit = live ? a.price : p.entry
+      const exitRate = live ? (a?.usdRate ?? 1) : (p.entryRate ?? 1)
+      const ct = buildClosed(p, exit, reason, a?.contract ?? 1, exitRate)
       const positions = s.positions.filter((x) => x.id !== id)
       const history = [ct, ...s.history]
       const orders = [orderRec(p.symbol, p.dir, 'CLOSE', p.lots, exit), ...s.orders]
@@ -350,8 +395,10 @@ export const useStore = create<Store>((set) => ({
       let orders = s.orders
       for (const p of s.positions) {
         const a = s.assets[p.symbol]
-        const exit = a ? a.price : p.entry
-        history = [buildClosed(p, exit, 'manual', a?.contract ?? 1, a?.usdRate ?? 1), ...history]
+        const live = isLive(a)                       // see closePosition
+        const exit = live ? a.price : p.entry
+        const exitRate = live ? (a?.usdRate ?? 1) : (p.entryRate ?? 1)
+        history = [buildClosed(p, exit, 'manual', a?.contract ?? 1, exitRate), ...history]
         orders = [orderRec(p.symbol, p.dir, 'CLOSE', p.lots, exit), ...orders]
       }
       persistSim({ positions: [], history, orders, alerts: s.alerts, pending: s.pending })
@@ -412,7 +459,9 @@ export function computeAccount(positions: Position[], assets: Record<string, Ass
   for (const p of positions) {
     const a = assets[p.symbol]
     margin += p.margin
-    if (a) {
+    // No live price -> the position simply cannot be marked; counting it as
+    // flat is honest, inventing a mark is not.
+    if (isLive(a)) {
       const { curRate, entRate } = fxRates(p, a)
       unrealized += (a.price * curRate - p.entry * entRate) * p.sign * p.lots * a.contract
     }
@@ -428,11 +477,16 @@ export function computeAccount(positions: Position[], assets: Record<string, Ass
   return { balance, equity, pnl: realizedToday + unrealized, margin, free: equity - margin }
 }
 
-export function positionPnl(p: Position, assets: Record<string, Asset>): { pnl: number; pct: number; current: number } {
+/** `current` is null when the instrument has no live price; P&L is then 0 rather
+ *  than a number marked-to-nothing, and the UI renders the position as "no data". */
+export function positionPnl(p: Position, assets: Record<string, Asset>): { pnl: number; pct: number; current: number | null } {
   const a = assets[p.symbol]
-  const current = a ? a.price : p.entry
   const { curRate, entRate } = fxRates(p, a)
-  const pnl = (current * curRate - p.entry * entRate) * p.sign * p.lots * (a?.contract ?? 1)
-  const pct = p.margin ? (pnl / p.margin) * 100 : 0
+  const contract = a?.contract ?? 1
+  if (!isLive(a)) return { pnl: 0, pct: 0, current: null }
+  const current = a.price
+  const pnl = (current * curRate - p.entry * entRate) * p.sign * p.lots * contract
+  const notional = entryNotional(p, contract, entRate)
+  const pct = notional ? (pnl / notional) * 100 : 0
   return { pnl, pct, current }
 }

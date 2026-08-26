@@ -11,7 +11,7 @@ const usdSigned = (v: number) => `${v >= 0 ? '+' : ''}${fmtUsd(v)}`
 const sign$ = (v: number) => `${v >= 0 ? '+' : '−'}$${fmtCompact(Math.abs(v))}`
 
 export default function PortfolioPanel(
-  { exposure, onPick, onClose }: { exposure: ExposureModel; onPick: (symbol: string) => void; onClose: () => void },
+  { exposure, onCountry, onClose }: { exposure: ExposureModel; onCountry: (iso: string) => void; onClose: () => void },
 ) {
   const all = Object.values(exposure.perCountry)
   const geoRows = all.filter((c) => c.notional > 0).sort((a, b) => b.notional - a.notional)
@@ -95,9 +95,10 @@ export default function PortfolioPanel(
             <>
               <div className={styles.ppColHead}><span /><span /><span>EXP</span><span>LAT</span><span>REAL</span></div>
               {geoRows.map((c) => {
-                const click = c.topSymbol ? () => onPick(c.topSymbol) : undefined
+                const click = () => onCountry(c.iso)
                 return (
-                  <div key={c.iso} className={`${styles.ppRow} ${click ? styles.ppRowClickable : ''}`} onClick={click}>
+                  <div key={c.iso} className={`${styles.ppRow} ${styles.ppRowClickable}`} onClick={click}
+                    title={`${c.count} position${c.count > 1 ? 's' : ''} in ${c.iso}`}>
                     <span className={styles.ppIso}>{c.iso}</span>
                     <span className={styles.ppBar}><span className={styles.ppBarFill} style={{ width: `${Math.max(3, (c.notional / maxBar) * 100)}%` }} /></span>
                     <span className={styles.ppNum}>${fmtCompact(c.notional)}</span>

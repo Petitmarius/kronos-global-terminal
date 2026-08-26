@@ -38,3 +38,13 @@
   color: var(--dim);
   pointer-events: none;
 }
+
+/* Yahoo has no history for this instrument -- an explicit empty state beats a
+   blank frame the user cannot tell apart from a still-loading chart. */
+.noData {
+  position: absolute; inset: 0; z-index: 3;
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 5px;
+  pointer-events: none;
+}
+.noDataTitle { font-size: 11px; font-weight: 700; letter-spacing: 1.6px; color: var(--muted); }
+.noDataNote { font-size: 9px; letter-spacing: .3px; color: var(--dim); }
