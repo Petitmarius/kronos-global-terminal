@@ -46,7 +46,7 @@ const Check: React.FC = () => (
   </svg>
 );
 
-const CHIP_TEXT = ['REAL MARKET DATA', 'LIVE STREAMING', 'PAPER TRADING'];
+const CHIP_TEXT = ['REAL MARKET DATA', 'API INTEGRATIONS', 'LIVE STREAMING'];
 
 /**
  * 14 → 16 s. Pull back from the macro screen to a tilted wall of every
