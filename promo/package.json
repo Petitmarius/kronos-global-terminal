@@ -1,0 +1,29 @@
+{
+  "name": "kronos-promo",
+  "private": true,
+  "version": "1.0.0",
+  "description": "KRONOS Global Terminal \u2014 motion-design promo video (Remotion)",
+  "type": "module",
+  "scripts": {
+    "studio": "remotion studio",
+    "render": "remotion render KronosPromo out/kronos-promo.mp4",
+    "render:silent": "remotion render KronosPromo out/kronos-promo-silent.mp4 --props='{\"withAudio\":false}' --muted",
+    "still": "remotion still KronosPromo out/poster.png --frame=1100",
+    "audio": "python3 audio/synth.py",
+    "footage": "scripts/extract-footage.sh",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@remotion/cli": "4.0.531",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "remotion": "4.0.531"
+  },
+  "devDependencies": {
+    "@remotion/bundler": "4.0.531",
+    "@remotion/renderer": "4.0.531",
+    "@types/react": "^18.3.12",
+    "@types/react-dom": "^18.3.1",
+    "typescript": "^5.6.3"
+  }
+}

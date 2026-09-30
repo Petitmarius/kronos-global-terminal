@@ -1,0 +1,5 @@
+node_modules/
+# screen-recording clips: regenerate with scripts/extract-footage.sh
+public/footage/
+# render scratch (stills)
+out/*.png
