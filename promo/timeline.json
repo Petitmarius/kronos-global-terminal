@@ -1,0 +1,13 @@
+{
+  "fps": 60,
+  "bpm": 120,
+  "duration": 19.0,
+  "hook": { "words": [0.0, 0.5, 1.0, 1.5] },
+  "logo": { "land": 2.0, "subtitle": 2.2, "portal": 3.2, "portalEnd": 3.55 },
+  "f1": { "drop": 4.0, "candles": 5.0 },
+  "f2": { "whip": 6.5, "limitClick": 6.9, "positions": 8.0 },
+  "f3": { "roll": 9.0, "usClick": 10.43, "panel": 10.5 },
+  "f4": { "roll": 11.5, "corr": 13.5 },
+  "montage": { "start": 14.0, "chips": [14.25, 14.75, 15.25] },
+  "end": { "start": 16.0, "tagline": 16.35, "cta": 16.7, "url": 16.9, "click": 17.5 }
+}
