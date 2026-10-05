@@ -133,9 +133,10 @@
 
 /* right analytics panel */
 .rp { position: absolute; top: 12px; right: 12px; bottom: 12px; width: 300px; z-index: 15; background: rgba(10,14,19,.96); border: 1px solid var(--border); border-radius: 10px; display: flex; flex-direction: column; box-shadow: -8px 0 30px rgba(0,0,0,.4); }
-.rpChart { height: 120px; margin: 8px 0 4px; position: relative; }
+.rpChart { height: 120px; margin: 4px 0; position: relative; }
 .rpChartInner { position: absolute; inset: 0; }
-.rpEmpty { height: 90px; display: flex; align-items: center; justify-content: center; text-align: center; color: var(--dim); font: 600 10px/1.4 'JetBrains Mono', monospace; padding: 0 12px; }
+.rpStat { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; font: 700 13px/1 'JetBrains Mono', monospace; }
+.rpBasis { margin-left: auto; font: 700 8px/1 'JetBrains Mono', monospace; letter-spacing: .8px; color: var(--dim); }
 
 /* --- country book modal (portfolio mode) ---------------------------------- */
 .pmBackdrop { position: absolute; inset: 0; z-index: 40; background: rgba(0,0,0,.6); display: flex; align-items: center; justify-content: center; padding: 20px; }

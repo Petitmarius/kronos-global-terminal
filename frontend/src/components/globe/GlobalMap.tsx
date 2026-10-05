@@ -3,7 +3,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { addAsset, fetchGlobeGeo, fetchGlobeMacroLayer, fetchGlobeMarkets } from '../../api'
 import { buildExposure } from '../../geo/exposure'
 import type { MapMetric } from '../../geo/scales'
-import { useStore } from '../../store'
+import { computeAccount, useStore } from '../../store'
 import type { GeoPoint, GlobeGeo, GlobeMarkets, MacroLayer } from '../../types'
 import CountryPanel from './CountryPanel'
 import CountryPositionsModal from './CountryPositionsModal'
@@ -34,6 +34,7 @@ export default function GlobalMap() {
   const history = useStore((s) => s.history)
   const assets = useStore((s) => s.assets)
   const customs = useStore((s) => s.customs)
+  const capital = useStore((s) => s.capital)
   const select = useStore((s) => s.selectAndWatch)
   const setView = useStore((s) => s.setView)
   const addToWatchlist = useStore((s) => s.addToWatchlist)
@@ -47,6 +48,13 @@ export default function GlobalMap() {
   const exposure = useMemo(
     () => buildExposure(positions, history, assets, customs, indexMap),
     [positions, history, assets, customs, indexMap],
+  )
+
+  // Live equity for the PERFORMANCE curve's last point. Same source of truth as
+  // the Terminal header, so the two views can never disagree.
+  const equity = useMemo(
+    () => computeAccount(positions, assets, history, capital).equity,
+    [positions, assets, history, capital],
   )
 
   const selectCountry = (iso: string) => { setGeoSel(null); setSelected(iso) }
@@ -111,7 +119,10 @@ export default function GlobalMap() {
         </div>
         {!portfolio && <MapLegend metric={metric} onMetric={setMetric} />}
         {portfolio && <PortfolioPanel exposure={exposure} onCountry={exposureClick} onClose={() => togglePortfolio(false)} />}
-        {portfolio && <AnalyticsPanel exposure={exposure} history={history} onPick={pick} />}
+        {portfolio && (
+          <AnalyticsPanel exposure={exposure} positions={positions} history={history} assets={assets}
+            capital={capital} equity={equity} onPick={pick} />
+        )}
         {portfolio && expoSel && (
           <CountryPositionsModal iso={expoSel} name={isoName(expoSel)} indexMap={indexMap}
             onPick={pick} onClose={() => setExpoSel(null)} />

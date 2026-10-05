@@ -121,23 +121,112 @@ export function buildExposure(
   }
 }
 
-// Cumulative realized P&L over a trailing window (default 30 days), starting at 0.
-// Returns [] when no trade closed in the window. Times are UNIX seconds (daily points).
-export function realizedCurve(history: ClosedTrade[], days = 30): { time: number; value: number }[] {
-  const dayMs = 86_400_000
-  const start = Date.now() - days * dayMs
-  const inWindow = history.filter((t) => t.closedAt >= start)
-  if (inWindow.length === 0) return []
-  const byDay = new Map<number, number>()
-  for (const t of inWindow) {
-    const di = Math.floor((t.closedAt - start) / dayMs)
-    byDay.set(di, (byDay.get(di) ?? 0) + t.pnl)
+const DAY_MS = 86_400_000
+
+/** Midnight minus `days`: the first point of an equity window. Exported so the
+ *  panel indexes candles against exactly the grid the curve walks. */
+export function curveStart(days: number): number {
+  const midnight = new Date()
+  midnight.setHours(0, 0, 0, 0)
+  return midnight.getTime() - days * DAY_MS
+}
+
+/** Real daily closes bucketed onto the window's day grid and forward-filled, so
+ *  a weekend or a holiday reuses the last session's close instead of punching a
+ *  hole in the mark. `null` means "no bar yet at that day" — the position is
+ *  left unmarked rather than marked at a guess. */
+export function closesByDay(
+  points: { time: number; value: number }[],
+  start: number,
+  days: number,
+): (number | null)[] {
+  const out: (number | null)[] = new Array(days + 1).fill(null)
+  for (const p of points) {
+    const di = Math.floor((p.time * 1000 - start) / DAY_MS)
+    if (di >= 0 && di <= days) out[di] = p.value
+    // A bar older than the window still sets the opening level once forward-filled.
+    else if (di < 0) out[0] = out[0] ?? p.value
   }
-  const out: { time: number; value: number }[] = []
-  let cum = 0
+  let last: number | null = null
   for (let i = 0; i <= days; i++) {
-    out.push({ time: Math.floor((start + i * dayMs) / 1000), value: cum })
-    cum += byDay.get(i) ?? 0
+    if (out[i] == null) out[i] = last
+    else last = out[i]
   }
+  return out
+}
+
+/** Account equity over a trailing window (default 30 days), in USD — a real
+ *  mark-to-market, not a realized-only staircase.
+ *
+ *  For every day in the window: `capital`, plus P&L realized on or before that
+ *  day, plus every lot that was *open* on that day marked against the symbol's
+ *  **real daily close** (`closes`, fetched from the same Yahoo history the chart
+ *  draws). Closed trades are marked over the span they were open and switch to
+ *  realized on their close day, so the curve stays continuous through a close
+ *  instead of jumping.
+ *
+ *  Only reconstructing realized P&L — the first version of this — drew a flat
+ *  line for 30 days and a cliff on the last point, because unrealized P&L only
+ *  existed on the live point. A position losing money for a week now shows that
+ *  week.
+ *
+ *  Historical FX uses the position's frozen `entryRate`: daily FX history is not
+ *  fetched, so the reconstruction carries the price move, not the currency move
+ *  (it is exactly 1 for FX, crypto, commodities and indices). The last point is
+ *  overridden with `equityNow` so the curve ends on the same number the Terminal
+ *  header shows.
+ *
+ *  Always returns `days + 1` points: an account that never traded draws a flat
+ *  line at its capital rather than an empty box.
+ */
+export function equityCurve(
+  positions: Position[],
+  history: ClosedTrade[],
+  assets: Record<string, Asset>,
+  capital: number,
+  equityNow: number,
+  closes: Record<string, (number | null)[]>,
+  days = 30,
+): { time: number; value: number }[] {
+  const start = curveStart(days)
+  const dayOf = (ms: number) => Math.floor((ms - start) / DAY_MS)
+
+  const realizedByDay = new Array(days + 1).fill(0)
+  let before = 0 // realized before the window -> part of the opening equity
+  for (const t of history) {
+    const di = dayOf(t.closedAt)
+    if (di < 0) before += t.pnl
+    // A `closedAt` past midnight tonight can only be clock skew; clamp it onto
+    // today rather than dropping P&L the live equity already counts.
+    else realizedByDay[Math.min(di, days)] += t.pnl
+  }
+
+  // (symbol, entry, sign, lots, rate, firstDay, lastDay) — one row per lot that
+  // was open at some point in the window. `lastDay` is exclusive.
+  const legs = [
+    ...positions.map((p) => ({
+      symbol: p.symbol, entry: p.entry, sign: p.sign, lots: p.lots,
+      rate: p.entryRate ?? 1, from: dayOf(p.openedAt), to: days + 1,
+    })),
+    ...history.map((t) => ({
+      symbol: t.symbol, entry: t.entry, sign: t.sign, lots: t.lots,
+      rate: 1, from: dayOf(t.openedAt), to: dayOf(t.closedAt),
+    })),
+  ].filter((l) => l.to > 0 && l.from <= days)
+
+  const out: { time: number; value: number }[] = []
+  let realized = capital + before
+  for (let i = 0; i <= days; i++) {
+    realized += realizedByDay[i]
+    let mark = 0
+    for (const l of legs) {
+      if (i < l.from || i >= l.to) continue
+      const close = closes[l.symbol]?.[i]
+      if (close == null) continue // no bar -> unmarked, never marked at a guess
+      mark += (close - l.entry) * l.rate * l.sign * l.lots * (assets[l.symbol]?.contract ?? 1)
+    }
+    out.push({ time: Math.floor((start + i * DAY_MS) / 1000), value: realized + mark })
+  }
+  out[days] = { time: out[days].time, value: equityNow }
   return out
 }
