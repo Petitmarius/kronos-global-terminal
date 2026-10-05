@@ -1,0 +1,26 @@
+# Keep the build context small: everything here is either rebuilt inside the
+# image, secret, or irrelevant to it. node_modules and the videos alone are
+# hundreds of megabytes that would be uploaded to the daemon on every build.
+.git
+.gitignore
+node_modules
+frontend/node_modules
+frontend/dist
+**/__pycache__
+*.pyc
+.venv
+venv
+
+# secrets never enter an image layer -- they arrive as env vars at runtime
+.env
+**/.env
+**/.env.local
+
+# local-only docs and media
+CLAUDE.md
+doc.md
+docs/
+*.mp4
+*.png
+*.ps1
+backend/tests

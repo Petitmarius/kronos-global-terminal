@@ -3,10 +3,12 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import pathlib
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 
 import config
 import globe
@@ -286,3 +288,17 @@ async def ws_prices(ws: WebSocket):
         pass
     finally:
         await HUB.disconnect(ws)
+
+
+# -- built frontend (container only) ---------------------------------------
+# Mounted LAST and only when the directory exists: `/` would otherwise shadow
+# every route above it, and in dev there is no build here at all -- Vite serves
+# the app on :5173 and proxies /api and /ws back to this process.
+#
+# Serving the bundle from the same origin as the API is what makes a single
+# container enough: the frontend only ever calls relative paths and derives the
+# websocket URL from `location.host`, so there is no API base to configure and
+# no CORS exchange. `html=True` returns index.html for unknown paths.
+_STATIC = pathlib.Path(__file__).parent / "static"
+if _STATIC.is_dir():
+    app.mount("/", StaticFiles(directory=_STATIC, html=True), name="web")
