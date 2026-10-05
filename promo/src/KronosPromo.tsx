@@ -18,7 +18,7 @@ loadFonts();
  *  3.2  fly through the green O into the product
  *  4.0  01 Terminal · 6.5 02 Paper trading · 9.0 03 Global map · 11.5 04 Macro
  * 14.0  wall of every view + proof points
- * 16.0  wordmark, promise, "Star on GitHub" call to action
+ * 16.0  wordmark, promise, "Try it live" call to action + the live app URL
  *
  * Every cue lives in ../timeline.json, shared with the soundtrack generator.
  */

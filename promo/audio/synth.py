@@ -655,6 +655,10 @@ send_long.add(fin, final, 0.9)
 bass.add(bass_note(hz('C3'), 0.7), final, 0.8)
 sfx.add(bell(hz('G5'), 1.2), final, 0.08)
 
+# the CTA arrow fires off to the right on the click (generated last so every
+# other random voice above stays exactly as it was)
+sfx.add(whoosh(0.3, 700, 6500, 0.35, -0.1, 0.8, 1.5), click + 0.01, 0.3)
+
 # --------------------------------------------------------------------------
 # Mix & master
 # --------------------------------------------------------------------------

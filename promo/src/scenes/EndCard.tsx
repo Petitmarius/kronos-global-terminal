@@ -23,15 +23,17 @@ const BASE = 400;
 const WORD = 'KRONOS';
 const X0 = 960 - (6 * ADV + 5 * SP) / 2;
 
-const REPO = 'github.com/Petitmarius/kronos-global-terminal';
+const SITE = 'kronos-global-terminal';
+const SITE_TLD = '.onrender.com';
 
-const GithubMark: React.FC<{ size: number }> = ({ size }) => (
-  <svg width={size} height={size} viewBox="0 0 16 16" fill="#F2F6FA">
-    <path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z" />
-  </svg>
-);
+const ARROW = 'M4 12h14.5M12.5 5.5L19 12l-6.5 6.5';
 
-const STAR = 'M12 2.5l2.94 5.96 6.58.96-4.76 4.64 1.12 6.55L12 17.52l-5.88 3.09 1.12-6.55L2.48 9.42l6.58-.96L12 2.5z';
+/** Linear blend of two #rrggbb colours. */
+const mix = (a: string, b: string, t: number) => {
+  const pa = [1, 3, 5].map((i) => parseInt(a.slice(i, i + 2), 16));
+  const pb = [1, 3, 5].map((i) => parseInt(b.slice(i, i + 2), 16));
+  return `rgb(${pa.map((v, i) => Math.round(v + (pb[i] - v) * t)).join(', ')})`;
+};
 
 /** Wordmark letters roll up into place — the same slot motion as the opening. */
 const Wordmark: React.FC<{ frame: number }> = ({ frame }) => {
@@ -108,7 +110,8 @@ const Cursor: React.FC<{ x: number; y: number; press: number; opacity: number }>
 
 /**
  * 16 → 19 s. The wordmark lands, the promise in one line, and the call to
- * action: a "Star on GitHub" button that gets clicked, plus the repo URL.
+ * action: a "Try it live" button that gets clicked (it fills green and the
+ * arrow fires off), plus the address of the live app.
  */
 export const EndCard: React.FC = () => {
   const frame = useCurrentFrame();
@@ -129,25 +132,31 @@ export const EndCard: React.FC = () => {
   // CTA button
   const btnIn = prog(frame, CTA, 24, ease.outBack);
   const pressed = punch(frame, [CLICK], 12, ease.outCubic);
-  const starred = frame >= CLICK;
-  const starPop = starred ? 1 + 0.45 * punch(frame, [CLICK], 18, ease.outCubic) : 1;
-  const btnW = 560;
+  const filled = prog(frame, CLICK, 12, ease.outCubic); // button turns solid green once clicked
+  const btnW = 470;
   const btnH = 92;
   const btnX = 960 - btnW / 2;
   const btnY = 640;
-  const starX = btnX + btnW - 66;
-  const starY = btnY + btnH / 2;
+  const goX = btnX + btnW - 62; // the arrow
+  const goY = btnY + btnH / 2;
+  const ink = mix('#F2F6FA', '#04110A', filled);
+  const dotPulse = 0.45 + 0.55 * (0.5 + 0.5 * Math.cos((frame / 60) * Math.PI * 2));
+  // arrow fires off to the right on the click, a fresh one slides back in
+  const out = prog(frame, CLICK, 10, ease.inCubic);
+  const back = prog(frame, CLICK + 10, 16, ease.outExpo);
+  const arrowX = frame < CLICK + 10 ? 40 * out : -40 * (1 - back);
+  const arrowO = frame < CLICK + 10 ? 1 - out : back;
 
-  // cursor path: in from lower right, onto the star, click, drift
+  // cursor path: in from lower right, onto the arrow, click, drift
   const cx = kf(frame, [
     [URL_AT, 1540],
-    [CLICK - 6, starX + 4, ease.outCubic],
-    [CLICK + 70, starX + 150, ease.inOutSine],
+    [CLICK - 6, goX + 4, ease.outCubic],
+    [CLICK + 70, goX + 150, ease.inOutSine],
   ]);
   const cy = kf(frame, [
     [URL_AT, 1030],
-    [CLICK - 6, starY + 4, ease.outCubic],
-    [CLICK + 70, starY + 30, ease.inOutSine],
+    [CLICK - 6, goY + 4, ease.outCubic],
+    [CLICK + 70, goY + 30, ease.inOutSine],
   ]);
   const cursorO = prog(frame, URL_AT, 10, ease.outCubic) * (1 - prog(frame, CLICK + 40, 30, ease.inOutSine));
   const press = punch(frame, [CLICK - 2], 12, ease.outCubic);
@@ -233,28 +242,43 @@ export const EndCard: React.FC = () => {
           opacity: clamp(btnIn * 1.3),
           transform: `scale(${(0.8 + 0.2 * btnIn) * (1 - 0.045 * pressed)})`,
           background: 'linear-gradient(180deg, #13211A 0%, #0B130F 100%)',
-          border: `2px solid rgba(0,230,118,${0.55 + 0.4 * pressed})`,
-          boxShadow: `0 24px 60px rgba(0,0,0,0.55), 0 0 ${46 + 60 * pressed}px rgba(0,230,118,${0.28 + 0.3 * pressed}), inset 0 1px 0 rgba(255,255,255,0.08)`,
+          border: `2px solid rgba(0,230,118,${0.55 + 0.45 * Math.max(pressed, filled)})`,
+          boxShadow: `0 24px 60px rgba(0,0,0,0.55), 0 0 ${46 + 50 * filled + 40 * pressed}px rgba(0,230,118,${0.28 + 0.22 * filled + 0.2 * pressed}), inset 0 1px 0 rgba(255,255,255,0.08)`,
           display: 'flex',
           alignItems: 'center',
           overflow: 'hidden',
         }}
       >
-        <div style={{ display: 'flex', alignItems: 'center', gap: 20, paddingLeft: 40, flex: 1 }}>
-          <GithubMark size={38} />
-          <span style={{ font: `700 34px/1 ${DISPLAY}`, color: C.text, letterSpacing: '-0.01em' }}>Star on GitHub</span>
+        <div
+          style={{
+            position: 'absolute',
+            inset: 0,
+            background: 'linear-gradient(180deg, #2BFF95 0%, #00E676 55%, #00C965 100%)',
+            opacity: filled,
+          }}
+        />
+        <div style={{ position: 'relative', display: 'flex', alignItems: 'center', gap: 18, paddingLeft: 42, flex: 1 }}>
+          <div
+            style={{
+              width: 14,
+              height: 14,
+              borderRadius: '50%',
+              background: mix('#00E676', '#04110A', filled),
+              opacity: filled > 0.5 ? 1 : dotPulse,
+              boxShadow: filled > 0.5 ? 'none' : `0 0 14px 3px rgba(0,230,118,${0.7 * dotPulse})`,
+            }}
+          />
+          <span style={{ font: `800 36px/1 ${DISPLAY}`, color: ink, letterSpacing: '-0.015em' }}>Try it live</span>
         </div>
-        <div style={{ width: 1.5, height: 44, background: 'rgba(255,255,255,0.14)' }} />
-        <div style={{ width: 130, display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
-          <svg width="44" height="44" viewBox="0 0 24 24" style={{ transform: `scale(${starPop})`, overflow: 'visible' }}>
-            <path
-              d={STAR}
-              fill={starred ? C.gold : 'none'}
-              stroke={starred ? C.gold : C.green}
-              strokeWidth={1.8}
-              strokeLinejoin="round"
-              style={{ filter: starred ? `drop-shadow(0 0 10px ${C.gold})` : undefined }}
-            />
+        <div style={{ position: 'relative', width: 1.5, height: 44, background: filled > 0.5 ? 'rgba(4,17,10,0.22)' : 'rgba(255,255,255,0.14)' }} />
+        <div style={{ position: 'relative', width: 124, display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
+          <svg
+            width="42"
+            height="42"
+            viewBox="0 0 24 24"
+            style={{ transform: `translateX(${arrowX}px)`, opacity: arrowO, overflow: 'visible' }}
+          >
+            <path d={ARROW} stroke={filled > 0.5 ? '#04110A' : C.green} strokeWidth={2.6} fill="none" strokeLinecap="round" strokeLinejoin="round" />
           </svg>
         </div>
         {shimmer >= 0 && shimmer <= 1 ? (
@@ -270,7 +294,7 @@ export const EndCard: React.FC = () => {
         ) : null}
       </div>
 
-      <StarBurst frame={frame} x={starX} y={starY} />
+      <ClickBurst frame={frame} x={goX} y={goY} />
 
       <div
         style={{
@@ -285,8 +309,8 @@ export const EndCard: React.FC = () => {
           opacity: prog(frame, URL_AT - 2, 12, ease.outCubic),
         }}
       >
-        <DecodeText text={REPO.slice(0, 23)} start={URL_AT} duration={16} seed={21} />
-        <DecodeText text={REPO.slice(23)} start={URL_AT + 6} duration={16} seed={22} style={{ color: C.text }} />
+        <DecodeText text={SITE} start={URL_AT} duration={16} seed={21} style={{ color: C.text }} />
+        <DecodeText text={SITE_TLD} start={URL_AT + 6} duration={14} seed={22} />
       </div>
 
       {frame >= URL_AT ? <Cursor x={cx} y={cy} press={press} opacity={cursorO} /> : null}
@@ -302,24 +326,23 @@ export const EndCard: React.FC = () => {
   );
 };
 
-const StarBurst: React.FC<{ frame: number; x: number; y: number }> = ({ frame, x, y }) => {
+const ClickBurst: React.FC<{ frame: number; x: number; y: number }> = ({ frame, x, y }) => {
   const age = frame - CLICK;
   if (age < 0 || age > 50) return null;
   const ring = prog(frame, CLICK, 30, ease.outCubic);
-  const plus = prog(frame, CLICK + 2, 44, ease.outCubic);
   return (
     <>
       <div
         style={{
           position: 'absolute',
-          left: x - 110 * ring,
-          top: y - 110 * ring,
-          width: 220 * ring,
-          height: 220 * ring,
+          left: x - 120 * ring,
+          top: y - 120 * ring,
+          width: 240 * ring,
+          height: 240 * ring,
           borderRadius: '50%',
-          border: `3px solid ${C.gold}`,
+          border: `3px solid ${C.green}`,
           opacity: 1 - ring,
-          boxShadow: `0 0 24px ${C.gold}`,
+          boxShadow: `0 0 24px ${C.green}`,
         }}
       />
       <svg width="1920" height="1080" style={{ position: 'absolute', inset: 0, overflow: 'visible' }}>
@@ -334,25 +357,12 @@ const StarBurst: React.FC<{ frame: number; x: number; y: number }> = ({ frame, x
               cx={x + Math.cos(ang) * d}
               cy={y + Math.sin(ang) * d}
               r={3.4 * (1 - t) + 0.6}
-              fill={i % 2 ? C.gold : C.green}
+              fill={i % 2 ? '#E9FFF3' : C.green}
               opacity={1 - t}
             />
           );
         })}
       </svg>
-      <div
-        style={{
-          position: 'absolute',
-          left: x + 26,
-          top: y - 70 - 50 * plus,
-          font: `800 30px/1 ${MONO}`,
-          color: C.gold,
-          opacity: plus < 0.7 ? 1 : 1 - (plus - 0.7) / 0.3,
-          textShadow: `0 0 16px ${C.gold}88`,
-        }}
-      >
-        +1
-      </div>
     </>
   );
 };
