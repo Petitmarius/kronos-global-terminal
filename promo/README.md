@@ -18,7 +18,7 @@ d'écran de l'app. Texte à l'écran en anglais.
 | 9,0 – 11,5 s | 03 Carte mondiale | *42 economies. One live map.* — clic sur les États-Unis, le panneau pays glisse |
 | 11,5 – 14,0 s | 04 Macro | *The macro, decoded.* — Risk Barometer, puis corrélations |
 | 14,0 – 16,0 s | Mosaïque | Mur de toutes les vues + **REAL MARKET DATA · API INTEGRATIONS · LIVE STREAMING** |
-| 16,0 – 19,0 s | Fin + CTA | Logo, *Real-time markets. Global macro. One terminal.*, bouton **Star on GitHub** cliqué, URL du dépôt |
+| 16,0 – 19,0 s | Fin + CTA | Logo, *Real-time markets. Global macro. One terminal.*, bouton **Try it live** cliqué, adresse de l'app en ligne : kronos-global-terminal.onrender.com |
 
 La barre **TERMINAL · GLOBAL · MACRO** (reprise du header de l'app) suit la vidéo d'une vue à l'autre.
 
@@ -28,7 +28,7 @@ Bande-son **originale**, entièrement synthétisée par [`audio/synth.py`](audio
 sample → libre de droits) : 120 BPM, la mineur qui se résout en do majeur, batterie, basse,
 nappes « supersaw », arpèges, plus le sound design (tic-tac d'horloge — clin d'œil à
 Chronos —, bobines de la machine à sous, whooshes, impacts, clics d'interface, carillon du
-bouton étoile). Chaque effet est calé à l'image près sur les repères de
+bouton final). Chaque effet est calé à l'image près sur les repères de
 [`timeline.json`](timeline.json), la même source de vérité que la vidéo. Mastering à −14 LUFS.
 
 ## Refaire le rendu
