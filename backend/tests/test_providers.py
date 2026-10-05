@@ -218,3 +218,72 @@ def test_one_dead_symbol_cannot_take_down_the_whole_board(monkeypatch):
     monkeypatch.setattr(providers, "_get", _raises(HTTP_429))
     q = providers.yahoo_quotes_batch(["^VIX", "DEAD", "^GSPC"])
     assert set(q) == {"^VIX", "^GSPC"}, "the dead symbol is dropped, the board survives"
+
+
+# -- candle cache TTL by interval -----------------------------------------
+#
+# A chart request is the one Yahoo call that scales with TRAFFIC rather than
+# being a fixed cost like the warm loops, and the portfolio equity curve fires
+# one per held symbol. A 25s TTL on a DAILY series re-fetches three months of
+# history every 25 seconds to learn nothing: the bar that actually moves during
+# a session is the last one, and the client overwrites it from the live tick
+# (`PriceChart` lastBarRef), so the fetch never carried that update anyway.
+
+import market
+
+
+def test_every_timeframe_has_a_positive_candle_ttl():
+    for tf in market.TIMEFRAMES:
+        assert providers._candle_ttl(tf) > 0, f"{tf} has no TTL"
+
+
+def test_intraday_timeframes_keep_the_short_ttl():
+    """1D/1W/1M are 5m/30m/60m bars -- a new bar lands every few minutes."""
+    for tf in ("1D", "1W", "1M"):
+        assert providers._candle_ttl(tf) == providers._CANDLE_TTL
+
+
+def test_daily_timeframes_cache_far_longer():
+    for tf in ("3M", "6M", "YTD", "1Y"):
+        assert providers._candle_ttl(tf) >= 600.0, f"{tf} still on the intraday TTL"
+
+
+def test_weekly_and_monthly_cache_longest():
+    for tf in ("5Y", "MAX"):
+        assert providers._candle_ttl(tf) >= providers._candle_ttl("1Y")
+
+
+def test_unknown_timeframe_falls_back_without_raising():
+    assert providers._candle_ttl("nonsense") > 0
+
+
+def _counting_chart(monkeypatch):
+    calls = []
+
+    def fake(ysym, tf):
+        calls.append((ysym, tf))
+        return [{"time": 1, "value": 1.0}]
+
+    monkeypatch.setattr(providers, "_candles_from_chart", fake)
+    providers._candle_cache.clear()
+    providers.YAHOO_MAP.setdefault("ZZTEST", "ZZTEST")
+    return calls
+
+
+def test_daily_candles_are_reused_after_the_old_25s_window(monkeypatch):
+    """The actual win: a second viewer 30s later costs zero Yahoo requests."""
+    calls = _counting_chart(monkeypatch)
+    providers.yahoo_candles("ZZTEST", "3M")
+    ts, payload = providers._candle_cache[("ZZTEST", "3M")]
+    providers._candle_cache[("ZZTEST", "3M")] = (ts - 30.0, payload)  # age it 30s
+    providers.yahoo_candles("ZZTEST", "3M")
+    assert len(calls) == 1, "a daily series was re-fetched 30s later"
+
+
+def test_intraday_candles_still_expire_quickly(monkeypatch):
+    calls = _counting_chart(monkeypatch)
+    providers.yahoo_candles("ZZTEST", "1D")
+    ts, payload = providers._candle_cache[("ZZTEST", "1D")]
+    providers._candle_cache[("ZZTEST", "1D")] = (ts - 30.0, payload)
+    providers.yahoo_candles("ZZTEST", "1D")
+    assert len(calls) == 2, "intraday bars went stale behind a long TTL"

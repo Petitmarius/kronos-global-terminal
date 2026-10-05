@@ -1,0 +1,32 @@
+# Render Blueprint — infrastructure as code.
+#
+# With this file in the repo root, Render's "New > Blueprint" reads the whole
+# service definition instead of you filling a form. Measured on the built image,
+# the free plan is comfortable: KRONOS idles at 0.2-1% of one core (free gives
+# 0.1 CPU, i.e. 10%) in ~59 MB (free gives 512 MB), and a connected viewer costs
+# 0.45 KB/s on the websocket, so the 5 GB monthly cap is ~3200 viewer-hours.
+#
+# The one real constraint is that a free service spins down after 15 minutes
+# idle and takes ~50s to answer the next request -- and comes back with cold
+# caches, which is the 4s page load this project spent a lot of effort removing.
+# An external uptime ping on /api/health every 10 minutes avoids both. Render
+# allows 750 instance-hours a month per workspace and a 31-day month is 744, so
+# one continuously-awake service fits, with little room for a second.
+services:
+  - type: web
+    name: kronos-global-terminal
+    runtime: docker
+    plan: free
+    region: frankfurt          # closest region to France
+    dockerfilePath: ./Dockerfile
+    # Cheap, no provider calls: the right thing to poll, and what the uptime
+    # ping should hit too.
+    healthCheckPath: /api/health
+    envVars:
+      # `sync: false` keeps the values out of this file and out of git: Render
+      # prompts for them once at deploy time. Both are optional -- without them
+      # the FRED panels show an "add key" state and news falls back to Yahoo RSS.
+      - key: FINNHUB_API_KEY
+        sync: false
+      - key: FRED_API_KEY
+        sync: false

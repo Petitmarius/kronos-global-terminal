@@ -49,6 +49,20 @@ _quote_cache: dict[str, tuple[float, dict]] = {}
 _raw_quote_cache: dict[str, tuple[float, dict]] = {}
 _CANDLE_TTL = 25.0
 _QUOTE_TTL = 4.0
+# Candle TTL by bar size. A chart request is the one Yahoo call that scales with
+# TRAFFIC -- the warm loops cost the same whether one visitor is connected or a
+# thousand -- and the portfolio equity curve fires one per held symbol. Holding a
+# DAILY series for 25s re-downloads three months of history to learn nothing:
+# within a session only the last bar moves, and the client overwrites that one
+# from the live tick (`PriceChart` lastBarRef), so the refetch never carried the
+# update anyway. The cost of a longer TTL is that a NEW bar shows up late, which
+# is why it is minutes for daily bars and an hour for weekly/monthly ones.
+_CANDLE_TTL_BY_INTERVAL = {"1d": 900.0, "1wk": 3600.0, "1mo": 3600.0}
+
+
+def _candle_ttl(tf: str) -> float:
+    interval, _rng = _YF_TF.get(tf, ("1d", "6mo"))
+    return _CANDLE_TTL_BY_INTERVAL.get(interval, _CANDLE_TTL)
 
 
 def _get(url: str, timeout: float = 8.0) -> dict:
@@ -120,7 +134,7 @@ def yahoo_candles(symbol: str, tf: str) -> dict | None:
         return None
     key = (symbol, tf)
     now = time.time()
-    if key in _candle_cache and now - _candle_cache[key][0] < _CANDLE_TTL:
+    if key in _candle_cache and now - _candle_cache[key][0] < _candle_ttl(tf):
         return _candle_cache[key][1]
 
     points = _candles_from_chart(ysym, tf)
@@ -138,7 +152,7 @@ def yahoo_candles_raw(ysym: str, tf: str) -> dict | None:
     universe, e.g. the real Dollar index (DX-Y.NYB)."""
     key = (ysym, tf)
     now = time.time()
-    if key in _raw_candle_cache and now - _raw_candle_cache[key][0] < _CANDLE_TTL:
+    if key in _raw_candle_cache and now - _raw_candle_cache[key][0] < _candle_ttl(tf):
         return _raw_candle_cache[key][1]
     points = _candles_from_chart(ysym, tf)
     if points is None:
