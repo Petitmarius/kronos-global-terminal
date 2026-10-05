@@ -31,10 +31,6 @@ export async function addAsset(symbol: string, name: string, cat: string): Promi
   return r.ok ? r.json() : null
 }
 
-export async function removeAsset(symbol: string): Promise<void> {
-  await fetch(`/api/assets/${encodeURIComponent(symbol)}`, { method: 'DELETE' }).catch(() => {})
-}
-
 export async function fetchCandles(symbol: string, tf: string): Promise<Candles> {
   const r = await fetch(`/api/assets/${symbol}/candles?tf=${tf}`)
   if (!r.ok) throw new Error('candles fetch failed')

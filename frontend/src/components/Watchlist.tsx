@@ -1,6 +1,6 @@
 import { type MouseEvent, useEffect, useState } from 'react'
 
-import { addAsset, removeAsset, searchSymbols, type SearchResult } from '../api'
+import { addAsset, searchSymbols, type SearchResult } from '../api'
 import { CATEGORIES, CAT_LABELS } from '../constants'
 import { arrow, fmt, signClass } from '../format'
 import { useStore } from '../store'
@@ -54,13 +54,12 @@ export default function Watchlist() {
 
   const onRemove = (e: MouseEvent, sym: string) => {
     e.stopPropagation()
-    const s = useStore.getState()
-    const held = s.positions.some((p) => p.symbol === sym) || s.pending.some((o) => o.symbol === sym)
+    // Local only. The watchlist is this browser's `apex.watchlist`, but the
+    // backend registry is shared by every visitor, so telling it to unregister
+    // dropped the symbol out from under everyone else watching it (their chart
+    // then 404s until `PriceChart` self-heals). The server bounds that registry
+    // itself by evicting symbols nobody has charted in a while.
     removeFromWatchlist(sym)
-    // Keep the BACKEND registration (and its price stream) while the symbol is
-    // still held: dropping it 404s /candles, so reopening the position from the
-    // POSITIONS table would land on an empty chart.
-    if (!held) removeAsset(sym) // backend only drops it if it was a custom symbol
   }
 
   return (

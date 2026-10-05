@@ -60,3 +60,78 @@ def test_quote_frame_keeps_nulls_null():
     q = m._quote(a)
     assert q["price"] is None
     assert all(q[k] is None for k in ("open", "high", "low", "prevClose", "spread"))
+
+
+# -- the shared custom-symbol registry ------------------------------------
+#
+# `MARKET.assets` is one dict shared by every visitor, and each custom entry
+# joins the poll loop. Nothing shrinks it any more now that the watchlist no
+# longer sends DELETE, so it has to bound itself or a public deploy walks into
+# a Yahoo 429.
+
+QUOTE = {"price": 100.0, "prevClose": 99.0}
+
+
+def custom(m, symbol, touched=None):
+    m.register(symbol, symbol, "EQ", 2, 1.0, QUOTE)
+    if touched is not None:
+        m.assets[symbol]["touched"] = touched
+    return m.assets[symbol]
+
+
+def test_register_stamps_a_touched_time():
+    m = market.MarketState()
+    a = custom(m, "MC.PA")
+    assert a.get("touched"), "no touched stamp -> eviction cannot order candidates"
+
+
+def test_touch_only_moves_custom_symbols():
+    m = market.MarketState()
+    custom(m, "MC.PA", touched=0.0)
+    m.touch("MC.PA")
+    assert m.assets["MC.PA"]["touched"] > 0.0
+    m.touch("BTCUSD")  # base universe: must not gain the field
+    assert "touched" not in m.assets["BTCUSD"]
+
+
+def test_evict_is_a_noop_under_the_cap():
+    m = market.MarketState()
+    custom(m, "MC.PA", touched=0.0)
+    assert m.evict_idle_customs(cap=5, idle_secs=60.0) == []
+    assert "MC.PA" in m.assets
+
+
+def test_evict_drops_the_oldest_idle_first():
+    m = market.MarketState()
+    for i, sym in enumerate(("A.PA", "B.PA", "C.PA")):
+        custom(m, sym, touched=1000.0 + i)   # A oldest, C newest
+    assert m.evict_idle_customs(cap=1, idle_secs=60.0) == ["A.PA", "B.PA"]
+    assert "C.PA" in m.assets and "A.PA" not in m.assets
+
+
+def test_evict_never_touches_the_base_universe():
+    m = market.MarketState()
+    base = len(m.assets)
+    assert m.evict_idle_customs(cap=0, idle_secs=60.0) == []
+    assert len(m.assets) == base, "a base-universe symbol was evicted"
+
+
+def test_evict_spares_a_symbol_someone_is_charting():
+    """A candle request touches the symbol, which is what keeps the chart you are
+    looking at out of the eviction set."""
+    m = market.MarketState()
+    custom(m, "A.PA", touched=0.0)
+    custom(m, "B.PA", touched=0.0)
+    m.touch("A.PA")                                     # now live
+    assert m.evict_idle_customs(cap=1, idle_secs=60.0) == ["B.PA"]
+    assert "A.PA" in m.assets
+
+
+def test_evict_stays_over_cap_rather_than_dropping_a_live_symbol():
+    """Evicting a symbol someone is watching to satisfy a number is the worse
+    failure: the registry is allowed to run over cap until something goes idle."""
+    m = market.MarketState()
+    custom(m, "A.PA")
+    custom(m, "B.PA")
+    assert m.evict_idle_customs(cap=1, idle_secs=1800.0) == []
+    assert "A.PA" in m.assets and "B.PA" in m.assets

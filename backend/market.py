@@ -192,6 +192,7 @@ class MarketState:
             "spread": spread_for(price, digits),
             "source": "live", "pc_real": True, "custom": True,
             "currency": currency, "usd_rate": usd_rate,
+            "touched": time.time(),
         }
         return self.asset_dict(self.assets[symbol])
 
@@ -201,6 +202,37 @@ class MarketState:
             del self.assets[symbol]
             return True
         return False
+
+    def touch(self, symbol: str) -> None:
+        """Mark a custom symbol as still wanted. Candle requests call this, so the
+        chart someone is actually looking at is never the one evicted."""
+        a = self.assets.get(symbol)
+        if a and a.get("custom"):
+            a["touched"] = time.time()
+
+    def evict_idle_customs(self, cap: int, idle_secs: float) -> list[str]:
+        """Bound the shared custom registry, oldest idle symbol first.
+
+        `self.assets` is one dict shared by every visitor and each custom entry
+        joins the poll loop, so an unbounded registry is how a public deploy
+        walks into a Yahoo 429. Nothing shrinks it on its own any more: removing
+        a watchlist row is a per-visitor UI action and no longer unregisters the
+        symbol for everybody.
+
+        Only symbols idle for `idle_secs` are candidates. If too few are idle the
+        registry is allowed to stay over `cap` -- evicting a symbol someone is
+        watching to satisfy a number is the worse failure, and a client that does
+        lose one recovers: `PriceChart` self-heals the 404 and `App` replays
+        `apex.customs` on reload. Returns the symbols dropped, so the caller can
+        unregister them from the provider map too.
+        """
+        customs = [(a.get("touched", 0.0), s) for s, a in self.assets.items() if a.get("custom")]
+        over = len(customs) - cap
+        if over <= 0:
+            return []
+        cutoff = time.time() - idle_secs
+        idle = sorted(c for c in customs if c[0] < cutoff)
+        return [sym for _, sym in idle[:over] if self.remove(sym)]
 
     def set_usd_rate(self, symbol: str, rate: float) -> dict | None:
         a = self.assets.get(symbol)

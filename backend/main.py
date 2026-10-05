@@ -19,6 +19,15 @@ from market import MARKET, TIMEFRAMES
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
 log = logging.getLogger("warm")
+reg_log = logging.getLogger("registry")
+
+# The custom-symbol registry is shared by every visitor and each entry joins the
+# poll loop, so it has to stay bounded: ~150 symbols is around nine extra spark
+# calls per cycle, which Yahoo tolerates. "Idle" means nobody has charted it in
+# half an hour -- see `MarketState.evict_idle_customs` for why a busy registry is
+# allowed to run over the cap instead.
+_CUSTOM_CAP = 150
+_CUSTOM_IDLE = 1800.0
 
 
 # (label, what to refresh, seconds between passes, seconds before the first pass)
@@ -141,17 +150,18 @@ async def add_asset(symbol: str, name: str = "", cat: str = "EQ"):
     rate = (await asyncio.to_thread(providers.usd_rate, currency)
             if cat_final == "EQ" and currency != "USD" else 1.0)
     asset = MARKET.register(local, name or local, cat_final, digits, 1.0, quote, currency, rate)
+    for stale in MARKET.evict_idle_customs(_CUSTOM_CAP, _CUSTOM_IDLE):
+        providers.unregister_symbol(stale)
+        reg_log.info("evicted idle custom symbol %s (cap %d)", stale, _CUSTOM_CAP)
     await HUB.broadcast({"type": "asset", "data": asset})
     return asset
 
 
-@app.delete("/api/assets/{symbol}")
-def remove_asset(symbol: str):
-    local = symbol.upper()
-    if MARKET.remove(local):
-        providers.unregister_symbol(local)
-        return {"removed": local}
-    raise HTTPException(400, "Only custom symbols can be removed")
+# There is deliberately no DELETE here. Removing a watchlist row is a per-visitor
+# UI action -- the watchlist lives in that browser's `apex.watchlist` -- but this
+# registry is shared, so unregistering on removal let any visitor drop a symbol
+# out from under everyone else (their chart then 404s until `PriceChart` self-heals).
+# The registry bounds itself through `evict_idle_customs` above instead.
 
 
 @app.get("/api/assets/{symbol}")
@@ -169,6 +179,8 @@ async def get_candles(symbol: str, tf: str = "1D"):
         raise HTTPException(404, f"Unknown symbol {symbol}")
     if tf not in TIMEFRAMES:
         raise HTTPException(400, f"Unknown timeframe {tf}")
+    # Someone is charting this -> it is not an eviction candidate.
+    MARKET.touch(sym)
     # Real Yahoo history or nothing -- there is no synthetic fallback. An empty
     # `points` list is the "no data" signal the chart renders.
     real = await asyncio.to_thread(providers.yahoo_candles, sym, tf)
