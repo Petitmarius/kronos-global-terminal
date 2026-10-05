@@ -24,3 +24,7 @@ docs/
 *.png
 *.ps1
 backend/tests
+
+# the Remotion promo project: ~23 MB of video, audio and fonts, plus its own
+# node_modules. It builds the marketing clip, not the app.
+promo/
