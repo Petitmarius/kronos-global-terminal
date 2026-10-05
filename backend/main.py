@@ -4,6 +4,7 @@ from __future__ import annotations
 import asyncio
 import logging
 import pathlib
+import time
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect
@@ -30,6 +31,9 @@ reg_log = logging.getLogger("registry")
 # allowed to run over the cap instead.
 _CUSTOM_CAP = 150
 _CUSTOM_IDLE = 1800.0
+
+# Process start, reported by /api/health. See that handler for why it matters.
+_STARTED = time.monotonic()
 
 
 # (label, what to refresh, seconds between passes, seconds before the first pass)
@@ -98,7 +102,17 @@ app.add_middleware(
 
 @app.get("/api/health")
 def health():
-    return {"status": "ok", "live": True, "finnhub": config.LIVE_ENABLED, "clients": len(HUB.clients)}
+    """`uptime` is how a free-tier deploy is audited from outside.
+
+    A host that spins the service down on idle (Render's free plan after 15 min)
+    kills the process, so uptime restarts at 0 on every wake. A reading of hours
+    therefore proves no spin-down happened in those hours -- which response
+    timing cannot, because any open browser tab keeps the service awake and makes
+    a fast reply look like a working keep-alive ping. Monotonic: immune to clock
+    changes.
+    """
+    return {"status": "ok", "live": True, "finnhub": config.LIVE_ENABLED,
+            "clients": len(HUB.clients), "uptime": round(time.monotonic() - _STARTED, 1)}
 
 
 @app.get("/api/meta")
